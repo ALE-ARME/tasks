@@ -2,6 +2,9 @@ package org.tasks.preferences.fragments
 
 import android.app.Activity.RESULT_OK
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
 import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
@@ -72,6 +75,35 @@ class Backups : Fragment() {
         viewModel.refreshDriveState(preferencesViewModel)
     }
 
+    private val markdownFilePickerLauncher = registerForActivityResult(StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            result.data?.data?.let { uri ->
+                val path = FileHelper.getPath(requireContext(), uri)
+                if (!path.isNullOrBlank()) {
+                    viewModel.updateMarkdownFilePath(path)
+                }
+            }
+        }
+    }
+
+    private fun checkAndRequestAllFilesPermission(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                        data = Uri.parse("package:${requireContext().packageName}")
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                    startActivity(intent)
+                }
+                return false
+            }
+        }
+        return true
+    }
+
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         preferencesViewModel.lastBackup.observe(this) {
@@ -114,6 +146,8 @@ class Backups : Fragment() {
                 lastAndroidBackupSummary = viewModel.lastAndroidBackupSummary,
                 showAndroidBackupWarning = viewModel.showAndroidBackupWarning,
                 ignoreWarnings = viewModel.ignoreWarnings,
+                markdownEnabled = viewModel.markdownEnabled,
+                markdownFilePath = viewModel.markdownFilePath,
                 onDocumentation = {
                     requireContext().openUri(R.string.url_backups)
                 },
@@ -156,32 +190,27 @@ class Backups : Fragment() {
                 onIgnoreWarnings = { enabled ->
                     viewModel.updateIgnoreWarnings(enabled, preferencesViewModel)
                 },
+                onMarkdownEnabled = { enabled ->
+                    if (enabled && !checkAndRequestAllFilesPermission()) {
+                        context?.toast("Autorizza l'accesso a tutti i file per attivare il backup Markdown")
+                    } else {
+                        viewModel.updateMarkdownEnabled(enabled)
+                    }
+                },
+                onMarkdownFilePath = {
+                    if (!checkAndRequestAllFilesPermission()) {
+                        context?.toast("Autorizza l'accesso a tutti i file per impostare il percorso")
+                    } else {
+                        markdownFilePickerLauncher.launch(
+                            FileHelper.newFilePickerIntent(activity, viewModel.backupDirectory)
+                        )
+                    }
+                },
             )
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        viewModel.refreshState(preferencesViewModel)
-        val surfaceColor = theme.themeBase.getSettingsSurfaceColor(requireActivity())
-        (activity as? BasePreferences)?.toolbar?.let { toolbar ->
-            toolbar.setBackgroundColor(surfaceColor)
-            (toolbar.parent as? View)?.setBackgroundColor(surfaceColor)
-        }
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        val defaultColor = ContextCompat.getColor(requireContext(), R.color.content_background)
-        (activity as? BasePreferences)?.toolbar?.let { toolbar ->
-            toolbar.setBackgroundColor(defaultColor)
-            (toolbar.parent as? View)?.setBackgroundColor(defaultColor)
-        }
-    }
-
     private fun requestGoogleDriveLogin() {
-        driveLauncher.launch(
-            Intent(context, DriveLoginActivity::class.java),
-        )
+        driveLauncher.launch(Intent(activity, DriveLoginActivity::class.java))
     }
 }

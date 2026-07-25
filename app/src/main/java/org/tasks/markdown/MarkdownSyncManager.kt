@@ -1,13 +1,13 @@
 package org.tasks.markdown
 
 import android.content.Context
+import android.os.Build
 import android.os.Environment
 import co.touchlab.kermit.Logger
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.tasks.data.dao.TaskDao
-import org.tasks.data.entity.Task
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -17,12 +17,25 @@ class MarkdownSyncManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val taskDao: TaskDao
 ) {
+    fun isStoragePermissionGranted(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            true
+        }
+    }
+
     suspend fun syncToMarkdown() {
         withContext(Dispatchers.IO) {
             try {
                 val prefs = context.getSharedPreferences("markdown_sync_prefs", Context.MODE_PRIVATE)
                 val enabled = prefs.getBoolean("enabled", true)
                 if (!enabled) return@withContext
+
+                if (!isStoragePermissionGranted()) {
+                    Logger.w("MarkdownSyncManager") { "Storage permission MANAGE_EXTERNAL_STORAGE not granted" }
+                    return@withContext
+                }
 
                 val defaultPath = File(
                     Environment.getExternalStorageDirectory(),

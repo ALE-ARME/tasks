@@ -38,6 +38,8 @@ fun BackupsScreen(
     lastAndroidBackupSummary: String,
     showAndroidBackupWarning: Boolean,
     ignoreWarnings: Boolean,
+    markdownEnabled: Boolean = true,
+    markdownFilePath: String = "",
     onDocumentation: () -> Unit,
     onBackupDir: () -> Unit,
     onBackupNow: () -> Unit,
@@ -48,6 +50,8 @@ fun BackupsScreen(
     onAndroidBackup: (Boolean) -> Unit,
     onDeviceSettings: () -> Unit,
     onIgnoreWarnings: (Boolean) -> Unit,
+    onMarkdownEnabled: (Boolean) -> Unit = {},
+    onMarkdownFilePath: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -101,6 +105,33 @@ fun BackupsScreen(
                     title = stringResource(R.string.automatic_backups),
                     checked = backupsEnabled,
                     onCheckedChange = onBackupsEnabled,
+                )
+            }
+        }
+
+        // Markdown (Obsidian) Backup Section
+        SectionHeader(
+            title = "Markdown (Obsidian)",
+            modifier = Modifier.padding(horizontal = SettingsContentPadding),
+        )
+        Column(
+            modifier = Modifier.padding(horizontal = SettingsContentPadding),
+            verticalArrangement = Arrangement.spacedBy(SettingsCardGap),
+        ) {
+            SettingsItemCard(position = CardPosition.First) {
+                SwitchPreferenceRow(
+                    title = "Backup automatici Markdown",
+                    summary = "Sincronizza in tempo reale ogni modifica ai task su file .md",
+                    checked = markdownEnabled,
+                    onCheckedChange = onMarkdownEnabled,
+                )
+            }
+            SettingsItemCard(position = CardPosition.Last) {
+                PreferenceRow(
+                    title = "Percorso file Markdown",
+                    summary = markdownFilePath,
+                    summaryMaxLines = 3,
+                    onClick = onMarkdownFilePath,
                 )
             }
         }

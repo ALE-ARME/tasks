@@ -57,6 +57,35 @@ class BackupsViewModel @Inject constructor(
     )
         private set
 
+    var markdownEnabled by mutableStateOf(
+        context.getSharedPreferences("markdown_sync_prefs", Context.MODE_PRIVATE).getBoolean("enabled", true)
+    )
+        private set
+
+    var markdownFilePath by mutableStateOf(
+        context.getSharedPreferences("markdown_sync_prefs", Context.MODE_PRIVATE).getString(
+            "file_path",
+            "/sdcard/OBSIDIAN/RECORDS-OF-THE-ABYSS/tasks.md"
+        ) ?: "/sdcard/OBSIDIAN/RECORDS-OF-THE-ABYSS/tasks.md"
+    )
+        private set
+
+    fun updateMarkdownEnabled(enabled: Boolean) {
+        context.getSharedPreferences("markdown_sync_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("enabled", enabled)
+            .apply()
+        markdownEnabled = enabled
+    }
+
+    fun updateMarkdownFilePath(path: String) {
+        context.getSharedPreferences("markdown_sync_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putString("file_path", path)
+            .apply()
+        markdownFilePath = path
+    }
+
     val backupDirectory: Uri?
         get() = preferences.backupDirectory
 

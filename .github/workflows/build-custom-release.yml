@@ -1,4 +1,4 @@
-name: Build and Release Custom Unsigned APK
+name: Build and Release Custom Signed APK
 
 on:
   push:
@@ -30,12 +30,18 @@ jobs:
       - name: Build Generic Release APK
         run: ./gradlew assembleGenericRelease --no-daemon
 
+      - name: Sign APK with Test Key
+        run: |
+          keytool -genkey -v -keystore test.keystore -storepass android -alias test -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Test"
+          UNSIGNED_APK=$(ls app/build/outputs/apk/generic/release/*.apk | head -n 1)
+          apksigner sign --ks test.keystore --ks-pass pass:android --ks-key-alias test --out app/build/outputs/apk/generic/release/tasks-test-signed.apk "$UNSIGNED_APK"
+
       - name: Create Automatic Release with marvinpinto
         uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "latest"
           prerelease: true
-          title: "Tasks Custom Build (Unsigned)"
+          title: "Tasks Custom Signed Build"
           files: |
-            app/build/outputs/apk/generic/release/*.apk
+            app/build/outputs/apk/generic/release/tasks-test-signed.apk
