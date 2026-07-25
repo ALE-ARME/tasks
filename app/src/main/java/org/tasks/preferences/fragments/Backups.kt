@@ -78,10 +78,9 @@ class Backups : Fragment() {
     private val markdownFilePickerLauncher = registerForActivityResult(StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
             result.data?.data?.let { uri ->
-                val path = FileHelper.getPath(requireContext(), uri)
-                if (!path.isNullOrBlank()) {
-                    viewModel.updateMarkdownFilePath(path)
-                }
+                requireContext().takePersistableUriPermission(uri)
+                val path = uri.path ?: uri.toString()
+                viewModel.updateMarkdownFilePath(path)
             }
         }
     }
