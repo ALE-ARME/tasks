@@ -52,6 +52,7 @@ import org.tasks.data.OpenTaskDao
 import org.tasks.opentasks.OpenTaskContentObserver
 import org.tasks.opentasks.OpenTasksSynchronizer
 import org.tasks.data.TaskSaver
+import org.tasks.markdown.MarkdownSyncManager
 import org.tasks.data.dao.AlarmDao
 import org.tasks.data.dao.Astrid2ContentProviderDao
 import org.tasks.data.dao.CaldavDao
@@ -498,7 +499,17 @@ class ApplicationModule {
         timerPlugin: TimerPlugin,
         backgroundWork: BackgroundWork,
         caldavDao: CaldavDao,
-    ) = TaskSaver(taskDao, refreshBroadcaster, notifier, locationService, timerPlugin, backgroundWork, caldavDao)
+        markdownSyncManager: MarkdownSyncManager,
+    ) = TaskSaver(
+        taskDao,
+        refreshBroadcaster,
+        notifier,
+        locationService,
+        timerPlugin,
+        backgroundWork,
+        caldavDao,
+        onTaskSaved = { markdownSyncManager.syncToMarkdown() }
+    )
 
     @Provides
     fun providesTimerPlugin(

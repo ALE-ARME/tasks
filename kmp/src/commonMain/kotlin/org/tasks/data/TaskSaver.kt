@@ -32,6 +32,7 @@ class TaskSaver(
     private val timerPlugin: TimerPlugin,
     private val backgroundWork: BackgroundWork,
     private val caldavDao: CaldavDao,
+    private val onTaskSaved: (suspend () -> Unit)? = null,
 ) {
     suspend fun save(task: Task, original: Task?, dirty: Boolean = true) {
         val markDirty = dirty && needsSync(task, original)
@@ -86,6 +87,7 @@ class TaskSaver(
         }
         notifier.triggerNotifications()
         backgroundWork.scheduleRefresh()
+        onTaskSaved?.invoke()
     }
 
     suspend fun setCollapsed(id: Long, collapsed: Boolean) {
