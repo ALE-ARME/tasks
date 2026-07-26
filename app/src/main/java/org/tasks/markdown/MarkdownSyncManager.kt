@@ -11,7 +11,6 @@ import kotlinx.coroutines.withContext
 import org.tasks.data.dao.AlarmDao
 import org.tasks.data.dao.TagDao
 import org.tasks.data.dao.TaskDao
-import org.tasks.data.entity.Priority
 import org.tasks.data.entity.Task
 import java.io.File
 import java.text.SimpleDateFormat
@@ -77,9 +76,9 @@ class MarkdownSyncManager @Inject constructor(
 
                     // Priority
                     when (task.priority) {
-                        Priority.HIGH -> res.append(" 🔴")
-                        Priority.MEDIUM -> res.append(" 🟡")
-                        Priority.LOW -> res.append(" 🔵")
+                        Task.Priority.HIGH -> res.append(" 🔴")
+                        Task.Priority.MEDIUM -> res.append(" 🟡")
+                        Task.Priority.LOW -> res.append(" 🔵")
                     }
 
                     // Due Date
