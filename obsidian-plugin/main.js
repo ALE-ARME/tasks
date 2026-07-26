@@ -1,4 +1,4 @@
-const { Plugin, MarkdownView, Notice, ItemView } = require('obsidian');
+const { Plugin, MarkdownView, Notice, ItemView, TFile } = require('obsidian');
 
 const VIEW_TYPE_TASKS = "tasks-app-custom-view";
 
@@ -16,16 +16,36 @@ class TasksAppView extends ItemView {
         return "check-square";
     }
     async onOpen() {
+        this.refreshView();
+        this.registerEvent(this.app.workspace.on('file-open', () => this.refreshView()));
+        this.registerEvent(this.app.vault.on('modify', (file) => {
+            const activeFile = this.app.workspace.getActiveFile();
+            if (activeFile && file.path === activeFile.path) {
+                this.refreshView();
+            }
+        }));
+    }
+
+    async refreshView() {
         const container = this.containerEl.children[1];
+        if (!container) return;
         container.empty();
         container.classList.add("tasks-app-container");
-        
+
         const activeFile = this.app.workspace.getActiveFile();
         if (activeFile && activeFile.extension === "md") {
             const content = await this.app.vault.read(activeFile);
             this.renderTasks(container, content, activeFile);
         } else {
-            container.createEl("h3", { text: "Apri un file .md con i tuoi task per visualizzarli in stile Tasks.org" });
+            // Try to find tasks.md in root
+            const tasksFile = this.app.vault.getAbstractFileByPath("tasks.md") || 
+                              this.app.vault.getMarkdownFiles().find(f => f.name.toLowerCase().includes("task"));
+            if (tasksFile && tasksFile instanceof TFile) {
+                const content = await this.app.vault.read(tasksFile);
+                this.renderTasks(container, content, tasksFile);
+            } else {
+                container.createEl("h3", { text: "Apri o seleziona un file .md per visualizzare i tuoi task" });
+            }
         }
     }
 
@@ -34,7 +54,7 @@ class TasksAppView extends ItemView {
 
         const header = container.createDiv({ cls: "tasks-app-header" });
         const title = header.createDiv({ cls: "tasks-app-title" });
-        title.innerHTML = `<span>📋 Tasks.org View</span>`;
+        title.innerHTML = `<span>📋 Tasks.org View (${file ? file.name : ''})</span>`;
 
         const searchInput = container.createEl("input", {
             cls: "tasks-app-search-input",
@@ -55,6 +75,8 @@ class TasksAppView extends ItemView {
             }
             listContainer.empty();
 
+            let hasPending = false;
+
             // Render Pending Tasks by List
             for (const [listName, tasks] of Object.entries(parsed.pending)) {
                 if (selectedList !== "Tutti" && selectedList !== "Completati" && selectedList !== listName) continue;
@@ -67,11 +89,17 @@ class TasksAppView extends ItemView {
                 );
 
                 if (filteredTasks.length === 0) continue;
+                hasPending = true;
 
                 const section = listContainer.createDiv({ cls: "tasks-app-list-section" });
                 section.createEl("h4", { cls: "tasks-app-list-title", text: `📁 ${listName}` });
 
                 filteredTasks.forEach(task => renderTaskItem(section, task, file, this.app));
+            }
+
+            if (!hasPending && selectedList !== "Completati") {
+                const emptyDiv = listContainer.createDiv({ cls: "tasks-app-empty" });
+                emptyDiv.createEl("p", { text: "Nessun task in sospeso trovato." });
             }
 
             // Render Completed Tasks
@@ -119,18 +147,18 @@ function parseMarkdownTasks(mdText) {
 
     lines.forEach((line, index) => {
         const trimmed = line.trim();
-        if (trimmed.startsWith("## ")) {
-            const headerTitle = trimmed.substring(3).trim();
-            if (headerTitle.includes("Completati")) {
+        if (trimmed.startsWith("#")) {
+            const headerTitle = trimmed.replace(/^#+\s*/, "").trim();
+            if (headerTitle.toLowerCase().includes("completati")) {
                 currentList = "Completati";
-            } else {
+            } else if (!headerTitle.toLowerCase().includes("tasks")) {
                 currentList = headerTitle;
                 if (!pending[currentList]) pending[currentList] = [];
             }
             return;
         }
 
-        const taskMatch = line.match(/^(\s*)-\s*\[([ xX])\]\s*(.*)$/);
+        const taskMatch = line.match(/^(\s*)[-*+]\s*\[([ xX])\]\s*(.*)$/);
         if (taskMatch) {
             const indent = taskMatch[1].length;
             const isCompleted = taskMatch[2].toLowerCase() === "x";
@@ -149,6 +177,21 @@ function parseMarkdownTasks(mdText) {
             const dueDate = dueDateMatch ? dueDateMatch[1] : null;
             rawTitle = rawTitle.replace(/📅\s*[\d-]{10}(?:\s*[\d:]{5})?/, "").trim();
 
+            // Extract notes (lines underneath with indent)
+            let notes = "";
+            let nextIndex = index + 1;
+            while (nextIndex < lines.length) {
+                const nextLine = lines[nextIndex];
+                const nextTrimmed = nextLine.trim();
+                if (nextTrimmed.startsWith("- [") || nextTrimmed.startsWith("#")) break;
+                if (nextLine.startsWith("    ") || nextLine.startsWith("\t")) {
+                    notes += (notes ? "\n" : "") + nextTrimmed;
+                    nextIndex++;
+                } else {
+                    break;
+                }
+            }
+
             const taskObj = {
                 lineIndex: index,
                 title: rawTitle,
@@ -156,7 +199,7 @@ function parseMarkdownTasks(mdText) {
                 priority,
                 dueDate,
                 tags,
-                notes: "",
+                notes,
                 indent,
                 listName: currentList
             };
@@ -170,6 +213,10 @@ function parseMarkdownTasks(mdText) {
         }
     });
 
+    if (Object.keys(pending).length === 0) {
+        pending["Inbox"] = [];
+    }
+
     return { pending, completed };
 }
 
@@ -179,14 +226,15 @@ function renderTaskItem(container, task, file, app) {
 
     const checkbox = main.createDiv({ cls: "tasks-app-checkbox" });
     checkbox.addEventListener("click", async () => {
+        if (!file) return;
         const content = await app.vault.read(file);
         const lines = content.split("\n");
         const line = lines[task.lineIndex];
         if (line) {
             if (task.isCompleted) {
-                lines[task.lineIndex] = line.replace("- [x]", "- [ ]").replace("- [X]", "- [ ]");
+                lines[task.lineIndex] = line.replace(/\[[xX]\]/, "[ ]");
             } else {
-                lines[task.lineIndex] = line.replace("- [ ]", "- [x]");
+                lines[task.lineIndex] = line.replace(/\[\s*\]/, "[x]");
             }
             await app.vault.modify(file, lines.join("\n"));
             new Notice(task.isCompleted ? "Task riaperto" : "Task completato!");
@@ -201,11 +249,15 @@ function renderTaskItem(container, task, file, app) {
         pBadge.text = task.priority.toUpperCase();
     }
     if (task.dueDate) {
-        const dBadge = badges.createDiv({ cls: "tasks-app-badge date", text: `📅 ${task.dueDate}` });
+        badges.createDiv({ cls: "tasks-app-badge date", text: `📅 ${task.dueDate}` });
     }
     task.tags.forEach(tg => {
         badges.createDiv({ cls: "tasks-app-badge tag", text: `#${tg}` });
     });
+
+    if (task.notes) {
+        const notesDiv = item.createDiv({ cls: "tasks-app-notes", text: task.notes });
+    }
 }
 
 module.exports = class TasksAppPlugin extends Plugin {
@@ -223,12 +275,39 @@ module.exports = class TasksAppPlugin extends Plugin {
 
         // Register Markdown Codeblock Processor for ```tasks-app
         this.registerMarkdownCodeblockProcessor("tasks-app", async (source, el, ctx) => {
-            const activeFile = this.app.workspace.getActiveFile();
-            const mdText = source.trim() ? source : (activeFile ? await this.app.vault.read(activeFile) : "");
-            
             const container = el.createDiv({ cls: "tasks-app-container" });
+            
+            let mdText = source.trim();
+            let file = null;
+
+            if (ctx.sourcePath) {
+                const abstractFile = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
+                if (abstractFile instanceof TFile) {
+                    file = abstractFile;
+                    if (!mdText) {
+                        mdText = await this.app.vault.read(file);
+                    }
+                }
+            }
+
+            if (!mdText) {
+                const activeFile = this.app.workspace.getActiveFile();
+                if (activeFile && activeFile.extension === "md") {
+                    file = activeFile;
+                    mdText = await this.app.vault.read(activeFile);
+                }
+            }
+
             const view = new TasksAppView(null);
-            view.renderTasks(container, mdText, activeFile);
+            view.renderTasks(container, mdText || "# Tasks\n_Nessun task trovato_", file);
+
+            // Register auto refresh on file modify
+            this.registerEvent(this.app.vault.on('modify', async (modifiedFile) => {
+                if (file && modifiedFile.path === file.path) {
+                    const newContent = await this.app.vault.read(file);
+                    view.renderTasks(container, newContent, file);
+                }
+            }));
         });
     }
 
