@@ -1,0 +1,9 @@
+{
+  "id": "obsidian-tasks-view",
+  "name": "Tasks App View",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "Visualizzazione interattiva stile app Tasks.org per i task Markdown in Obsidian",
+  "author": "Antigravity",
+  "isDesktopOnly": false
+}

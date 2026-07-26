@@ -1,0 +1,227 @@
+/* Tasks App View Plugin Styles */
+
+.tasks-app-container {
+    font-family: var(--font-interface);
+    color: var(--text-normal);
+    background-color: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 12px;
+    padding: 16px;
+    margin: 12px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.tasks-app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--interactive-accent);
+}
+
+.tasks-app-title {
+    font-size: 1.25em;
+    font-weight: 700;
+    color: var(--text-accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tasks-app-filter-bar {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+}
+
+.tasks-app-chip {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85em;
+    font-weight: 600;
+    background-color: var(--background-secondary);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid var(--background-modifier-border);
+    white-space: nowrap;
+}
+
+.tasks-app-chip:hover {
+    background-color: var(--background-secondary-alt);
+    color: var(--text-normal);
+}
+
+.tasks-app-chip.active {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent, #ffffff);
+    border-color: var(--interactive-accent);
+}
+
+.tasks-app-search-input {
+    width: 100%;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--background-modifier-border);
+    background-color: var(--background-secondary);
+    color: var(--text-normal);
+    font-size: 0.9em;
+    margin-bottom: 14px;
+}
+
+.tasks-app-search-input:focus {
+    outline: none;
+    border-color: var(--interactive-accent);
+}
+
+.tasks-app-list-section {
+    margin-bottom: 16px;
+}
+
+.tasks-app-list-title {
+    font-size: 1em;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin: 12px 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tasks-app-item {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tasks-app-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tasks-app-item.completed {
+    opacity: 0.65;
+}
+
+.tasks-app-item-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.tasks-app-checkbox {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--interactive-accent);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+
+.tasks-app-item.completed .tasks-app-checkbox {
+    background-color: var(--interactive-accent);
+}
+
+.tasks-app-checkbox::after {
+    content: '';
+    width: 6px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    display: none;
+}
+
+.tasks-app-item.completed .tasks-app-checkbox::after {
+    display: block;
+}
+
+.tasks-app-text {
+    font-size: 0.95em;
+    font-weight: 500;
+    color: var(--text-normal);
+    flex-grow: 1;
+}
+
+.tasks-app-item.completed .tasks-app-text {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+.tasks-app-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+    margin-left: 32px;
+}
+
+.tasks-app-badge {
+    font-size: 0.75em;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.tasks-app-badge.priority-high {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.tasks-app-badge.priority-medium {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.tasks-app-badge.priority-low {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.tasks-app-badge.tag {
+    background-color: var(--tag-background, rgba(168, 85, 247, 0.15));
+    color: var(--tag-color, #a855f7);
+    border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.tasks-app-badge.date {
+    background-color: var(--background-tertiary);
+    color: var(--text-muted);
+    border: 1px solid var(--background-modifier-border);
+}
+
+.tasks-app-notes {
+    margin-top: 6px;
+    margin-left: 32px;
+    font-size: 0.85em;
+    color: var(--text-muted);
+    background-color: var(--background-secondary-alt);
+    padding: 6px 10px;
+    border-radius: 6px;
+    border-left: 3px solid var(--interactive-accent);
+}
+
+.tasks-app-subtasks {
+    margin-left: 24px;
+    margin-top: 6px;
+}
