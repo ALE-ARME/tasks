@@ -150,7 +150,7 @@ class Backups : Fragment() {
     private fun showManualPathInputDialog() {
         val input =
             EditText(requireContext()).apply {
-                setText(viewModel.markdownFilePath.ifBlank { "/sdcard/OBSIDIAN/RECORDS-OF-THE-ABYSS/tasks.md" })
+                setText(viewModel.markdownFilePath.ifBlank { "/sdcard/OBSIDIAN/RECORDS-OF-THE-ABYSS/00s - INBOX/tasks.md" })
                 setSelection(text.length)
             }
         AlertDialog
