@@ -7,10 +7,8 @@ import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
@@ -28,7 +26,6 @@ import org.tasks.extensions.Context.takePersistableUriPermission
 import org.tasks.extensions.Context.toast
 import org.tasks.files.FileHelper
 import org.tasks.markdown.MarkdownSyncManager
-import org.tasks.preferences.BasePreferences
 import org.tasks.preferences.PreferencesViewModel
 import org.tasks.themes.TasksSettingsTheme
 import org.tasks.themes.Theme
@@ -39,67 +36,74 @@ private const val FRAG_TAG_IMPORT_TASKS = "frag_tag_import_tasks"
 
 @AndroidEntryPoint
 class Backups : Fragment() {
-
     @Inject lateinit var theme: Theme
+
     @Inject lateinit var markdownSyncManager: MarkdownSyncManager
 
     private val preferencesViewModel: PreferencesViewModel by activityViewModels()
     private val viewModel: BackupsViewModel by viewModels()
 
-    private val backupDirLauncher = registerForActivityResult(StartActivityForResult()) { result ->
-        if (result.resultCode == RESULT_OK) {
-            result.data?.data?.let { uri ->
-                requireContext().takePersistableUriPermission(uri)
-                viewModel.handleBackupDirResult(uri, preferencesViewModel)
-            }
-        }
-    }
-
-    private val importPickerLauncher = registerForActivityResult(StartActivityForResult()) { result ->
-        if (result.resultCode == RESULT_OK) {
-            result.data?.data?.let { uri ->
-                val extension = FileHelper.getExtension(requireContext(), uri)
-                if (!"json".equals(extension, ignoreCase = true)) {
-                    context?.toast(R.string.invalid_backup_file)
-                } else {
-                    ImportTasksDialog.newImportTasksDialog(uri)
-                        .show(parentFragmentManager, FRAG_TAG_IMPORT_TASKS)
+    private val backupDirLauncher =
+        registerForActivityResult(StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                result.data?.data?.let { uri ->
+                    requireContext().takePersistableUriPermission(uri)
+                    viewModel.handleBackupDirResult(uri, preferencesViewModel)
                 }
             }
         }
-    }
 
-    private val driveLauncher = registerForActivityResult(StartActivityForResult()) { result ->
-        if (result.resultCode == RESULT_OK) {
-            preferencesViewModel.updateDriveBackup()
-        } else {
-            result.data?.getStringExtra(DriveLoginActivity.EXTRA_ERROR)
-                ?.let { context?.toast(it) }
-        }
-        viewModel.refreshDriveState(preferencesViewModel)
-    }
-
-    private val markdownFilePickerLauncher = registerForActivityResult(StartActivityForResult()) { result ->
-        if (result.resultCode == RESULT_OK) {
-            result.data?.data?.let { uri ->
-                requireContext().takePersistableUriPermission(uri)
-                val path = uri.path ?: uri.toString()
-                viewModel.updateMarkdownFilePath(path)
-                viewModel.updateMarkdownEnabled(true)
-                lifecycleScope.launch {
-                    markdownSyncManager.syncToMarkdown()
+    private val importPickerLauncher =
+        registerForActivityResult(StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                result.data?.data?.let { uri ->
+                    val extension = FileHelper.getExtension(requireContext(), uri)
+                    if (!"json".equals(extension, ignoreCase = true)) {
+                        context?.toast(R.string.invalid_backup_file)
+                    } else {
+                        ImportTasksDialog
+                            .newImportTasksDialog(uri)
+                            .show(parentFragmentManager, FRAG_TAG_IMPORT_TASKS)
+                    }
                 }
             }
         }
-    }
+
+    private val driveLauncher =
+        registerForActivityResult(StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                preferencesViewModel.updateDriveBackup()
+            } else {
+                result.data
+                    ?.getStringExtra(DriveLoginActivity.EXTRA_ERROR)
+                    ?.let { context?.toast(it) }
+            }
+            viewModel.refreshDriveState(preferencesViewModel)
+        }
+
+    private val markdownFilePickerLauncher =
+        registerForActivityResult(StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                result.data?.data?.let { uri ->
+                    requireContext().takePersistableUriPermission(uri)
+                    val path = uri.path ?: uri.toString()
+                    viewModel.updateMarkdownFilePath(path)
+                    viewModel.updateMarkdownEnabled(true)
+                    lifecycleScope.launch {
+                        markdownSyncManager.syncToMarkdown()
+                    }
+                }
+            }
+        }
 
     private fun checkAndRequestAllFilesPermission(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!Environment.isExternalStorageManager()) {
                 try {
-                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
-                        data = Uri.parse("package:${requireContext().packageName}")
-                    }
+                    val intent =
+                        Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                            data = Uri.parse("package:${requireContext().packageName}")
+                        }
                     startActivity(intent)
                 } catch (e: Exception) {
                     val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
@@ -123,7 +127,8 @@ class Backups : Fragment() {
             viewModel.refreshAndroidBackupSummary(it, preferencesViewModel)
         }
         parentFragmentManager.setFragmentResultListener(
-            ExportTasksDialog.REQUEST_KEY, this
+            ExportTasksDialog.REQUEST_KEY,
+            this,
         ) { _, _ ->
             preferencesViewModel.updateLocalBackup()
         }
@@ -132,7 +137,7 @@ class Backups : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
-        savedInstanceState: android.os.Bundle?
+        savedInstanceState: android.os.Bundle?,
     ) = content {
         TasksSettingsTheme(
             theme = theme.themeBase.index,
@@ -163,12 +168,13 @@ class Backups : Fragment() {
                         FileHelper.newDirectoryPickerIntent(
                             context,
                             viewModel.backupDirectory,
-                        )
+                        ),
                     )
                 },
                 onBackupNow = {
                     viewModel.logEvent("backup_now")
-                    ExportTasksDialog.newExportTasksDialog()
+                    ExportTasksDialog
+                        .newExportTasksDialog()
                         .show(parentFragmentManager, FRAG_TAG_EXPORT_TASKS)
                 },
                 onImportBackup = {
@@ -213,17 +219,18 @@ class Backups : Fragment() {
                     if (!checkAndRequestAllFilesPermission()) {
                         context?.toast("Autorizza l'accesso a tutti i file per impostare il percorso")
                     } else {
-                        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                            addCategory(Intent.CATEGORY_OPENABLE)
-                            type = "*/*"
-                            putExtra(Intent.EXTRA_TITLE, "tasks.md")
-                            addFlags(
-                                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                        val intent =
+                            Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                                type = "*/*"
+                                putExtra(Intent.EXTRA_TITLE, "tasks.md")
+                                addFlags(
+                                    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
                                         or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                                         or Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                        or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
-                            )
-                        }
+                                        or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION,
+                                )
+                            }
                         markdownFilePickerLauncher.launch(intent)
                     }
                 },
