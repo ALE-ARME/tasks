@@ -1,6 +1,7 @@
 package org.tasks.markdown
 
 import android.content.Context
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import co.touchlab.kermit.Logger
@@ -8,7 +9,12 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.tasks.data.dao.TaskDao
+import org.tasks.data.entity.Priority
+import org.tasks.data.entity.Task
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -38,35 +44,53 @@ class MarkdownSyncManager @Inject constructor(
                     return@withContext
                 }
 
-                if (!isStoragePermissionGranted()) {
-                    Logger.w("MarkdownSyncManager") { "Storage permission MANAGE_EXTERNAL_STORAGE not granted" }
-                    return@withContext
-                }
-
-                val file = File(filePath)
-                val parentDir = file.parentFile
-                if (parentDir != null && !parentDir.exists()) {
-                    parentDir.mkdirs()
-                }
-
                 val tasks = taskDao.getActiveTasks()
                 val sb = StringBuilder()
                 sb.append("# Tasks\n\n")
 
-                val pending = tasks.filter { !it.isCompleted }
-                val completed = tasks.filter { it.isCompleted }
+                val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+
+                val parentTasks = tasks.filter { it.parent == 0L }
+                val pending = parentTasks.filter { !it.isCompleted }
+                val completed = parentTasks.filter { it.isCompleted }
+
+                fun formatTask(task: Task, indentLevel: Int): String {
+                    val res = StringBuilder()
+                    val indent = "    ".repeat(indentLevel)
+                    val checkbox = if (task.isCompleted) "[x]" else "[ ]"
+                    res.append("$indent- $checkbox ${task.title ?: ""}")
+
+                    if (task.dueDate > 0) {
+                        res.append(" 📅 ${dateFormat.format(Date(task.dueDate))}")
+                    }
+
+                    when (task.priority) {
+                        Priority.HIGH -> res.append(" 🔴")
+                        Priority.MEDIUM -> res.append(" 🟡")
+                        Priority.LOW -> res.append(" 🔵")
+                    }
+                    res.append("\n")
+
+                    val notes = task.notes
+                    if (!notes.isNullOrBlank()) {
+                        val indentedNotes = notes.replace("\n", "\n$indent    ")
+                        res.append("$indent    $indentedNotes\n")
+                    }
+
+                    val subtasks = tasks.filter { it.parent == task.id }
+                    subtasks.forEach { sub ->
+                        res.append(formatTask(sub, indentLevel + 1))
+                    }
+
+                    return res.toString()
+                }
 
                 sb.append("## Da Completare\n")
                 if (pending.isEmpty()) {
                     sb.append("_Nessun task in sospeso_\n\n")
                 } else {
                     pending.forEach { task ->
-                        sb.append("- [ ] ${task.title}\n")
-                        val notes = task.notes
-                        if (!notes.isNullOrBlank()) {
-                            val indentedNotes = notes.replace("\n", "\n    ")
-                            sb.append("    $indentedNotes\n")
-                        }
+                        sb.append(formatTask(task, 0))
                     }
                     sb.append("\n")
                 }
@@ -76,12 +100,25 @@ class MarkdownSyncManager @Inject constructor(
                     sb.append("_Nessun task completato_\n\n")
                 } else {
                     completed.take(50).forEach { task ->
-                        sb.append("- [x] ${task.title}\n")
+                        sb.append(formatTask(task, 0))
                     }
                     sb.append("\n")
                 }
 
-                file.writeText(sb.toString())
+                val content = sb.toString()
+                if (filePath.startsWith("content://")) {
+                    val uri = Uri.parse(filePath)
+                    context.contentResolver.openOutputStream(uri, "rwt")?.use { stream ->
+                        stream.write(content.toByteArray(Charsets.UTF_8))
+                    }
+                } else {
+                    val file = File(filePath)
+                    val parentDir = file.parentFile
+                    if (parentDir != null && !parentDir.exists()) {
+                        parentDir.mkdirs()
+                    }
+                    file.writeText(content, Charsets.UTF_8)
+                }
                 Logger.d("MarkdownSyncManager") { "Successfully synced tasks to $filePath" }
             } catch (e: Exception) {
                 Logger.e(e) { "Error syncing tasks to markdown file" }
