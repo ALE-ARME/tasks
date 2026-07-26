@@ -9,6 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.tasks.data.dao.AlarmDao
+import org.tasks.data.dao.CaldavDao
 import org.tasks.data.dao.TagDao
 import org.tasks.data.dao.TaskDao
 import org.tasks.data.entity.Task
@@ -27,6 +28,7 @@ class MarkdownSyncManager
         private val taskDao: TaskDao,
         private val tagDao: TagDao,
         private val alarmDao: AlarmDao,
+        private val caldavDao: CaldavDao,
     ) {
         fun isStoragePermissionGranted(): Boolean =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -128,17 +130,28 @@ class MarkdownSyncManager
                         return res.toString()
                     }
 
-                    sb.append("## Da Completare\n")
-                    if (pending.isEmpty()) {
-                        sb.append("_Nessun task in sospeso_\n\n")
-                    } else {
-                        for (task in pending) {
-                            sb.append(formatTask(task, 0))
+                    val tasksByList =
+                        pending.groupBy { task ->
+                            caldavDao
+                                .getCalendars(listOf(task.id))
+                                .firstOrNull()
+                                ?.name
+                                ?.takeIf { it.isNotBlank() } ?: "Inbox"
                         }
-                        sb.append("\n")
+
+                    if (pending.isEmpty()) {
+                        sb.append("## Inbox\n_Nessun task in sospeso_\n\n")
+                    } else {
+                        tasksByList.forEach { (listName, listTasks) ->
+                            sb.append("## $listName\n")
+                            for (task in listTasks) {
+                                sb.append(formatTask(task, 0))
+                            }
+                            sb.append("\n")
+                        }
                     }
 
-                    sb.append("## Completati\n")
+                    sb.append("## ☑️ Completati\n")
                     if (completed.isEmpty()) {
                         sb.append("_Nessun task completato_\n\n")
                     } else {
