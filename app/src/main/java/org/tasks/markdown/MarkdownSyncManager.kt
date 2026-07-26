@@ -29,19 +29,19 @@ class MarkdownSyncManager @Inject constructor(
         withContext(Dispatchers.IO) {
             try {
                 val prefs = context.getSharedPreferences("markdown_sync_prefs", Context.MODE_PRIVATE)
-                val enabled = prefs.getBoolean("enabled", true)
+                val enabled = prefs.getBoolean("enabled", false)
                 if (!enabled) return@withContext
+
+                val filePath = prefs.getString("file_path", "") ?: ""
+                if (filePath.isBlank()) {
+                    Logger.w("MarkdownSyncManager") { "Markdown file path is empty, skipping sync" }
+                    return@withContext
+                }
 
                 if (!isStoragePermissionGranted()) {
                     Logger.w("MarkdownSyncManager") { "Storage permission MANAGE_EXTERNAL_STORAGE not granted" }
                     return@withContext
                 }
-
-                val defaultPath = File(
-                    Environment.getExternalStorageDirectory(),
-                    "OBSIDIAN/RECORDS-OF-THE-ABYSS/tasks.md"
-                ).absolutePath
-                val filePath = prefs.getString("file_path", defaultPath) ?: defaultPath
 
                 val file = File(filePath)
                 val parentDir = file.parentFile

@@ -599,7 +599,17 @@ class ApplicationModule {
         vtodoCache: VtodoCache,
         tasksPreferences: TasksPreferences,
         taskCleanup: TaskCleanup,
-    ) = TaskDeleter(deletionDao, taskDao, caldavDao, refreshBroadcaster, vtodoCache, tasksPreferences, taskCleanup)
+        markdownSyncManager: MarkdownSyncManager,
+    ) = TaskDeleter(
+        deletionDao,
+        taskDao,
+        caldavDao,
+        refreshBroadcaster,
+        vtodoCache,
+        tasksPreferences,
+        taskCleanup,
+        onTaskDeleted = { markdownSyncManager.syncToMarkdown() }
+    )
 
     @Provides
     fun providesTaskMigrator(

@@ -1,6 +1,6 @@
 [versions]
-versionCode = "150809" # increment by 2
-versionName = "15.8.5"
+versionCode = "150810" # increment by 2
+versionName = "15.8.6"
 agp = "9.2.1"
 android-compileSdk = "36"
 android-minSdk = "26"

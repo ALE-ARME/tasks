@@ -23,6 +23,7 @@ class TaskDeleter(
     private val vtodoCache: VtodoCache,
     private val tasksPreferences: TasksPreferences,
     private val taskCleanup: TaskCleanup,
+    private val onTaskDeleted: (suspend () -> Unit)? = null,
 ) {
 
     suspend fun markMoved(taskIds: List<Long>) {
@@ -45,6 +46,7 @@ class TaskDeleter(
             cleanup = { taskCleanup.cleanup(it) }
         )
         refreshBroadcaster.broadcastRefresh()
+        onTaskDeleted?.invoke()
         taskDao.fetch(ids)
     }
 
@@ -59,6 +61,7 @@ class TaskDeleter(
             cleanup = { taskCleanup.cleanup(it) }
         )
         refreshBroadcaster.broadcastRefresh()
+        onTaskDeleted?.invoke()
     }
 
     suspend fun delete(list: CaldavCalendar) {
@@ -69,6 +72,7 @@ class TaskDeleter(
         )
         tasksPreferences.delete(list.filterPreferencesKey())
         refreshBroadcaster.broadcastRefresh()
+        onTaskDeleted?.invoke()
     }
 
     suspend fun delete(account: CaldavAccount) {
@@ -79,6 +83,7 @@ class TaskDeleter(
         )
         calendars.forEach { tasksPreferences.delete(it.filterPreferencesKey()) }
         refreshBroadcaster.broadcastRefresh()
+        onTaskDeleted?.invoke()
     }
 
     suspend fun isDeleted(task: Long): Boolean = deletionDao.isDeleted(task)

@@ -58,15 +58,12 @@ class BackupsViewModel @Inject constructor(
         private set
 
     var markdownEnabled by mutableStateOf(
-        context.getSharedPreferences("markdown_sync_prefs", Context.MODE_PRIVATE).getBoolean("enabled", true)
+        context.getSharedPreferences("markdown_sync_prefs", Context.MODE_PRIVATE).getBoolean("enabled", false)
     )
         private set
 
     var markdownFilePath by mutableStateOf(
-        context.getSharedPreferences("markdown_sync_prefs", Context.MODE_PRIVATE).getString(
-            "file_path",
-            "/sdcard/OBSIDIAN/RECORDS-OF-THE-ABYSS/tasks.md"
-        ) ?: "/sdcard/OBSIDIAN/RECORDS-OF-THE-ABYSS/tasks.md"
+        context.getSharedPreferences("markdown_sync_prefs", Context.MODE_PRIVATE).getString("file_path", "") ?: ""
     )
         private set
 

@@ -15,7 +15,9 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.fragment.compose.content
+import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 import org.tasks.R
 import org.tasks.compose.settings.BackupsScreen
 import org.tasks.dialogs.ExportTasksDialog
@@ -25,6 +27,7 @@ import org.tasks.extensions.Context.openUri
 import org.tasks.extensions.Context.takePersistableUriPermission
 import org.tasks.extensions.Context.toast
 import org.tasks.files.FileHelper
+import org.tasks.markdown.MarkdownSyncManager
 import org.tasks.preferences.BasePreferences
 import org.tasks.preferences.PreferencesViewModel
 import org.tasks.themes.TasksSettingsTheme
@@ -38,6 +41,7 @@ private const val FRAG_TAG_IMPORT_TASKS = "frag_tag_import_tasks"
 class Backups : Fragment() {
 
     @Inject lateinit var theme: Theme
+    @Inject lateinit var markdownSyncManager: MarkdownSyncManager
 
     private val preferencesViewModel: PreferencesViewModel by activityViewModels()
     private val viewModel: BackupsViewModel by viewModels()
@@ -79,8 +83,12 @@ class Backups : Fragment() {
         if (result.resultCode == RESULT_OK) {
             result.data?.data?.let { uri ->
                 requireContext().takePersistableUriPermission(uri)
-                val path = uri.path ?: uri.toString()
+                val path = FileHelper.getPath(requireContext(), uri) ?: uri.path ?: uri.toString()
                 viewModel.updateMarkdownFilePath(path)
+                viewModel.updateMarkdownEnabled(true)
+                lifecycleScope.launch {
+                    markdownSyncManager.syncToMarkdown()
+                }
             }
         }
     }
@@ -194,15 +202,29 @@ class Backups : Fragment() {
                         context?.toast("Autorizza l'accesso a tutti i file per attivare il backup Markdown")
                     } else {
                         viewModel.updateMarkdownEnabled(enabled)
+                        if (enabled) {
+                            lifecycleScope.launch {
+                                markdownSyncManager.syncToMarkdown()
+                            }
+                        }
                     }
                 },
                 onMarkdownFilePath = {
                     if (!checkAndRequestAllFilesPermission()) {
                         context?.toast("Autorizza l'accesso a tutti i file per impostare il percorso")
                     } else {
-                        markdownFilePickerLauncher.launch(
-                            FileHelper.newFilePickerIntent(activity, viewModel.backupDirectory)
-                        )
+                        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "*/*"
+                            putExtra(Intent.EXTRA_TITLE, "tasks.md")
+                            addFlags(
+                                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                                        or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                                        or Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                        or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
+                            )
+                        }
+                        markdownFilePickerLauncher.launch(intent)
                     }
                 },
             )

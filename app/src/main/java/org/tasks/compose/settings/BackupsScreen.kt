@@ -129,7 +129,7 @@ fun BackupsScreen(
             SettingsItemCard(position = CardPosition.Last) {
                 PreferenceRow(
                     title = "Percorso file Markdown",
-                    summary = markdownFilePath,
+                    summary = if (markdownFilePath.isBlank()) "Nessun file selezionato (tocca per scegliere o creare .md)" else markdownFilePath,
                     summaryMaxLines = 3,
                     onClick = onMarkdownFilePath,
                 )
