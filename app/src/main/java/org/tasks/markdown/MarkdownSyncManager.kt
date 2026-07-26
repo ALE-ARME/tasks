@@ -8,6 +8,8 @@ import co.touchlab.kermit.Logger
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.tasks.data.dao.AlarmDao
+import org.tasks.data.dao.TagDao
 import org.tasks.data.dao.TaskDao
 import org.tasks.data.entity.Priority
 import org.tasks.data.entity.Task
@@ -21,7 +23,9 @@ import javax.inject.Singleton
 @Singleton
 class MarkdownSyncManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val taskDao: TaskDao
+    private val taskDao: TaskDao,
+    private val tagDao: TagDao,
+    private val alarmDao: AlarmDao,
 ) {
     fun isStoragePermissionGranted(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -49,36 +53,72 @@ class MarkdownSyncManager @Inject constructor(
                 sb.append("# Tasks\n\n")
 
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                val dateTimeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
 
                 val parentTasks = tasks.filter { it.parent == 0L }
                 val pending = parentTasks.filter { !it.isCompleted }
                 val completed = parentTasks.filter { it.isCompleted }
 
-                fun formatTask(task: Task, indentLevel: Int): String {
+                suspend fun formatTask(task: Task, indentLevel: Int): String {
                     val res = StringBuilder()
                     val indent = "    ".repeat(indentLevel)
                     val checkbox = if (task.isCompleted) "[x]" else "[ ]"
                     res.append("$indent- $checkbox ${task.title ?: ""}")
 
-                    if (task.dueDate > 0) {
-                        res.append(" 📅 ${dateFormat.format(Date(task.dueDate))}")
+                    // Tags
+                    val tags = tagDao.getTagsForTask(task.id)
+                    if (tags.isNotEmpty()) {
+                        tags.forEach { tag ->
+                            tag.name?.takeIf { it.isNotBlank() }?.let { tagName ->
+                                res.append(" #$tagName")
+                            }
+                        }
                     }
 
+                    // Priority
                     when (task.priority) {
                         Priority.HIGH -> res.append(" 🔴")
                         Priority.MEDIUM -> res.append(" 🟡")
                         Priority.LOW -> res.append(" 🔵")
                     }
+
+                    // Due Date
+                    if (task.dueDate > 0) {
+                        res.append(" 📅 ${dateTimeFormat.format(Date(task.dueDate))}")
+                    }
+
+                    // Hide Until / Start Date
+                    if (task.hideUntil > 0) {
+                        res.append(" 🛫 ${dateFormat.format(Date(task.hideUntil))}")
+                    }
+
+                    // Recurrence
+                    if (!task.recurrence.isNullOrBlank()) {
+                        res.append(" 🔄 ${task.recurrence}")
+                    }
+
+                    // Alarms
+                    val alarms = alarmDao.getAlarms(task.id)
+                    if (alarms.isNotEmpty()) {
+                        alarms.forEach { alarm ->
+                            if (alarm.time > 0) {
+                                res.append(" ⏰ ${dateTimeFormat.format(Date(alarm.time))}")
+                            }
+                        }
+                    }
+
                     res.append("\n")
 
+                    // Notes
                     val notes = task.notes
                     if (!notes.isNullOrBlank()) {
                         val indentedNotes = notes.replace("\n", "\n$indent    ")
                         res.append("$indent    $indentedNotes\n")
                     }
 
+                    // Subtasks
                     val subtasks = tasks.filter { it.parent == task.id }
-                    subtasks.forEach { sub ->
+                    for (sub in subtasks) {
                         res.append(formatTask(sub, indentLevel + 1))
                     }
 
@@ -89,7 +129,7 @@ class MarkdownSyncManager @Inject constructor(
                 if (pending.isEmpty()) {
                     sb.append("_Nessun task in sospeso_\n\n")
                 } else {
-                    pending.forEach { task ->
+                    for (task in pending) {
                         sb.append(formatTask(task, 0))
                     }
                     sb.append("\n")
@@ -99,7 +139,7 @@ class MarkdownSyncManager @Inject constructor(
                 if (completed.isEmpty()) {
                     sb.append("_Nessun task completato_\n\n")
                 } else {
-                    completed.take(50).forEach { task ->
+                    for (task in completed.take(50)) {
                         sb.append(formatTask(task, 0))
                     }
                     sb.append("\n")
