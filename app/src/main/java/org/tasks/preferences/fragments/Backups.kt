@@ -8,7 +8,9 @@ import android.os.Environment
 import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.EditText
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
@@ -85,8 +87,9 @@ class Backups : Fragment() {
         registerForActivityResult(StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
                 result.data?.data?.let { uri ->
-                    requireContext().takePersistableUriPermission(uri)
-                    val path = uri.path ?: uri.toString()
+                    val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    requireContext().takePersistableUriPermission(uri, takeFlags)
+                    val path = uri.toString()
                     viewModel.updateMarkdownFilePath(path)
                     viewModel.updateMarkdownEnabled(true)
                     lifecycleScope.launch {
@@ -113,6 +116,58 @@ class Backups : Fragment() {
             }
         }
         return true
+    }
+
+    private fun showMarkdownPathOptionsDialog() {
+        val options = arrayOf("Sfoglia con gestore file (SAF)", "Inserisci percorso manuale")
+        AlertDialog
+            .Builder(requireContext())
+            .setTitle("Percorso File Markdown")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> {
+                        val intent =
+                            Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                                type = "*/*"
+                                putExtra(Intent.EXTRA_TITLE, "tasks.md")
+                                addFlags(
+                                    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                                        or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                                        or Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                        or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION,
+                                )
+                            }
+                        markdownFilePickerLauncher.launch(intent)
+                    }
+                    1 -> {
+                        showManualPathInputDialog()
+                    }
+                }
+            }.show()
+    }
+
+    private fun showManualPathInputDialog() {
+        val input =
+            EditText(requireContext()).apply {
+                setText(viewModel.markdownFilePath.ifBlank { "/sdcard/OBSIDIAN/RECORDS-OF-THE-ABYSS/tasks.md" })
+                setSelection(text.length)
+            }
+        AlertDialog
+            .Builder(requireContext())
+            .setTitle("Inserisci percorso .md")
+            .setView(input)
+            .setPositiveButton("Salva") { _, _ ->
+                val path = input.text.toString().trim()
+                if (path.isNotBlank()) {
+                    viewModel.updateMarkdownFilePath(path)
+                    viewModel.updateMarkdownEnabled(true)
+                    lifecycleScope.launch {
+                        markdownSyncManager.syncToMarkdown()
+                    }
+                }
+            }.setNegativeButton("Annulla", null)
+            .show()
     }
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
@@ -219,19 +274,7 @@ class Backups : Fragment() {
                     if (!checkAndRequestAllFilesPermission()) {
                         context?.toast("Autorizza l'accesso a tutti i file per impostare il percorso")
                     } else {
-                        val intent =
-                            Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                                addCategory(Intent.CATEGORY_OPENABLE)
-                                type = "*/*"
-                                putExtra(Intent.EXTRA_TITLE, "tasks.md")
-                                addFlags(
-                                    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
-                                        or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                                        or Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                        or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION,
-                                )
-                            }
-                        markdownFilePickerLauncher.launch(intent)
+                        showMarkdownPathOptionsDialog()
                     }
                 },
             )

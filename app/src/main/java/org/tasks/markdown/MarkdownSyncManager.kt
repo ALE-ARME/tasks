@@ -151,9 +151,11 @@ class MarkdownSyncManager
                     val content = sb.toString()
                     if (filePath.startsWith("content://")) {
                         val uri = Uri.parse(filePath)
-                        context.contentResolver.openOutputStream(uri, "rwt")?.use { stream ->
+                        context.contentResolver.openOutputStream(uri, "wt")?.use { stream ->
                             stream.write(content.toByteArray(Charsets.UTF_8))
+                            stream.flush()
                         }
+                        Logger.d("MarkdownSyncManager") { "Successfully synced tasks via ContentResolver to $filePath" }
                     } else {
                         val file = File(filePath)
                         val parentDir = file.parentFile
@@ -161,8 +163,8 @@ class MarkdownSyncManager
                             parentDir.mkdirs()
                         }
                         file.writeText(content, Charsets.UTF_8)
+                        Logger.d("MarkdownSyncManager") { "Successfully synced tasks via File to $filePath" }
                     }
-                    Logger.d("MarkdownSyncManager") { "Successfully synced tasks to $filePath" }
                 } catch (e: Exception) {
                     Logger.e(e) { "Error syncing tasks to markdown file" }
                 }
