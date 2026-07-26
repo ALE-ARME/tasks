@@ -83,7 +83,7 @@ class Backups : Fragment() {
         if (result.resultCode == RESULT_OK) {
             result.data?.data?.let { uri ->
                 requireContext().takePersistableUriPermission(uri)
-                val path = FileHelper.getPath(requireContext(), uri) ?: uri.path ?: uri.toString()
+                val path = uri.path ?: uri.toString()
                 viewModel.updateMarkdownFilePath(path)
                 viewModel.updateMarkdownEnabled(true)
                 lifecycleScope.launch {
