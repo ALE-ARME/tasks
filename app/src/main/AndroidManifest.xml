@@ -30,6 +30,7 @@
   <!-- ************* -->
   <uses-permission android:name="android.permission.VIBRATE"/>
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
   <uses-permission
       android:name="android.permission.SCHEDULE_EXACT_ALARM"
       tools:ignore="ProtectedPermissions" />
@@ -360,7 +361,22 @@
       </intent-filter>
     </receiver>
 
+    <!-- local HTTP API, started on demand (see org.tasks.http) -->
+    <receiver
+      android:name=".http.TaskHttpServerReceiver"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="org.tasks.intent.action.START_HTTP_SERVER" />
+        <action android:name="org.tasks.intent.action.STOP_HTTP_SERVER" />
+      </intent-filter>
+    </receiver>
+
     <!-- ======================================================== Services = -->
+
+    <service
+      android:name=".http.TaskHttpServerService"
+      android:exported="false"
+      android:foregroundServiceType="dataSync" />
 
     <service
       android:name="androidx.core.widget.RemoteViewsCompatService"

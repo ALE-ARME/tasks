@@ -438,4 +438,7 @@ File %1$s contained %2$s.\n\n
   <string name="button_learn_more">Learn more</string>
   <string name="widget_view_more_tasks">View more tasks</string>
   <string name="read_more">Read more</string>
+  <string name="http_server_notification_channel" translatable="false">Tasks HTTP API</string>
+  <string name="http_server_notification_title" translatable="false">Tasks HTTP API</string>
+  <string name="http_server_notification_text" translatable="false">Listening on the loopback interface</string>
 </resources>
