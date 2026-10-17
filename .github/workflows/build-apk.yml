@@ -1,0 +1,50 @@
+name: Build APK
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK and Gradle
+        uses: ./.github/actions/setup-gradle
+
+      - name: Read version
+        id: version
+        run: |
+          version=$(sed -n 's/^VERSION_NAME=//p' version.properties)
+          echo "name=${version:-dev}" >> "$GITHUB_OUTPUT"
+
+      # nonMinifiedRelease is signed with the debug keystore, so no secrets are needed here.
+      # Debug signing is deliberate: this APK is for sideloading, not for the Play Store.
+      - name: Build APK
+        run: ./gradlew :app:assembleGenericNonMinifiedRelease
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: tasks-generic-nonMinifiedRelease
+          path: app/build/outputs/apk/generic/nonMinifiedRelease/*.apk
+
+      - name: Publish APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk
+          name: APK
+          body: |
+            Debug-signed ${{ steps.version.outputs.name }} build of the generic flavor,
+            from ${{ github.sha }}.
+          prerelease: true
+          files: app/build/outputs/apk/generic/nonMinifiedRelease/*.apk
