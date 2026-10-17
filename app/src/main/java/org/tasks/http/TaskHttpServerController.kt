@@ -75,7 +75,7 @@ class TaskHttpServerController @Inject constructor(
             store(server.port, newPassword)
             TaskHttpServerState(running = true, port = server.port)
                 .also { _state.value = it }
-                .also { Timber.i("Tasks HTTP API listening on %s", it.endpoint) }
+                .also { state -> Timber.i("Tasks HTTP API listening on ${state.endpoint}") }
         } catch (e: Exception) {
             Timber.e(e, "Failed to start the tasks HTTP API")
             fail(e.message ?: e.toString())
@@ -88,7 +88,7 @@ class TaskHttpServerController @Inject constructor(
         server = null
         servingPort = 0
         servingPassword = ""
-        Timber.i { "Tasks HTTP API stopped" }
+        Timber.i("Tasks HTTP API stopped")
         return TaskHttpServerState().also { _state.value = it }
     }
 

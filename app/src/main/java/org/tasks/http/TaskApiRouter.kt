@@ -9,8 +9,11 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.tasks.api.ApiErrors
@@ -203,9 +206,9 @@ class TaskApiRouter(
         is JsonNull -> null
         is JsonPrimitive -> when {
             isString -> content
-            booleanOrNull != null -> boolean
-            longOrNull != null -> long
-            doubleOrNull != null -> double
+            booleanOrNull != null -> booleanOrNull
+            longOrNull != null -> longOrNull
+            doubleOrNull != null -> doubleOrNull
             else -> content
         }
         else -> throw IllegalArgumentException("'$key' must be a string, number, boolean or null")
