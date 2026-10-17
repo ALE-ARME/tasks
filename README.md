@@ -21,7 +21,7 @@ Please visit [tasks.org](https://tasks.org) for end user documentation and suppo
 [![PayPal donate button](https://img.shields.io/badge/paypal-donate-yellow.svg?logo=paypal)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=alex@tasks.org)
 [![Liberapay donate button](https://img.shields.io/liberapay/receives/tasks.svg?logo=liberapay)](https://liberapay.com/tasks/donate)
 
-[![build](https://github.com/tasks/tasks/actions/workflows/bundle.yml/badge.svg)](https://github.com/tasks/tasks/actions/workflows/bundle.yml) [![weblate](https://hosted.weblate.org/widgets/tasks/-/android/svg-badge.svg)](https://hosted.weblate.org/engage/tasks/?utm_source=widget) 
+[![build](https://github.com/ALE-ARME/tasks/actions/workflows/build-apk.yml/badge.svg)](https://github.com/ALE-ARME/tasks/actions/workflows/build-apk.yml) [![weblate](https://hosted.weblate.org/widgets/tasks/-/android/svg-badge.svg)](https://hosted.weblate.org/engage/tasks/?utm_source=widget) 
 
 ### Verifying release signatures
 
