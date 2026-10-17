@@ -453,5 +453,6 @@ File %1$s contained %2$s.\n\n
   <string name="http_api_password_dialog_title">Password</string>
   <string name="http_api_password_dialog_hint">Any request without this password is refused</string>
   <string name="http_api_loopback">The server listens on 127.0.0.1 only, so nothing on the network can reach it, and it stops when you switch it off</string>
-  <string name="http_api_intent_summary">An automation app can start it with org.tasks.intent.action.START_HTTP_SERVER, and stop it with org.tasks.intent.action.STOP_HTTP_SERVER</string>
+  <string name="http_api_automation">Automation</string>
+  <string name="http_api_automation_summary">In MacroDroid, add a Send Intent action with target Broadcast receiver, package org.tasks, class org.tasks.http.TaskHttpServerReceiver and action org.tasks.intent.action.START_HTTP_SERVER. Send STOP_HTTP_SERVER to shut the server down, or TOGGLE_HTTP_SERVER to invert its state. The optional extras port (integer) and password (string) override the settings above for that run</string>
 </resources>

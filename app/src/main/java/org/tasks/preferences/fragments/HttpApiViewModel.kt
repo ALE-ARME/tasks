@@ -54,12 +54,12 @@ class HttpApiViewModel @Inject constructor(
         error = null
     }
 
-    fun setPassword(value: String) {
+    fun changePassword(value: String) {
         controller.setPassword(value)
         password = controller.password
     }
 
-    fun setPort(value: Int) {
+    fun changePort(value: Int) {
         controller.setPort(value)
         port = controller.port
     }

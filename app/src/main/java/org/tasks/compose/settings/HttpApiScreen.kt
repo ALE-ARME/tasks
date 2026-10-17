@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import org.tasks.R
 import org.tasks.themes.TasksIcons
@@ -134,15 +135,42 @@ fun HttpApiScreen(
 
         Spacer(modifier = Modifier.height(SettingsContentPadding))
 
-        Text(
-            text = stringResource(R.string.http_api_loopback),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        SectionHeader(
+            R.string.http_api_automation,
             modifier = Modifier.padding(horizontal = SettingsContentPadding),
         )
-        Spacer(modifier = Modifier.height(SettingsSectionGap))
+        Column(
+            modifier = Modifier.padding(horizontal = SettingsContentPadding),
+            verticalArrangement = Arrangement.spacedBy(SettingsCardGap),
+        ) {
+            SettingsItemCard(position = CardPosition.Only) {
+                Column(
+                    modifier = Modifier.padding(SettingsRowPadding),
+                    verticalArrangement = Arrangement.spacedBy(SettingsSectionGap),
+                ) {
+                    Text(
+                        text = stringResource(R.string.http_api_automation_summary),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = ADB_START,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                    Text(
+                        text = ADB_STOP,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(SettingsContentPadding))
+
         Text(
-            text = stringResource(R.string.http_api_intent_summary),
+            text = stringResource(R.string.http_api_loopback),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = SettingsContentPadding),
@@ -255,3 +283,6 @@ private fun PortDialog(
         },
     )
 }
+
+private const val ADB_START = "adb shell am broadcast -a org.tasks.intent.action.START_HTTP_SERVER"
+private const val ADB_STOP = "adb shell am broadcast -a org.tasks.intent.action.STOP_HTTP_SERVER"

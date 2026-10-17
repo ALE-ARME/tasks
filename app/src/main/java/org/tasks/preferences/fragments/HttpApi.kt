@@ -34,8 +34,8 @@ class HttpApi : Fragment() {
                 password = viewModel.password,
                 onStart = { viewModel.start() },
                 onStop = { viewModel.stop() },
-                onPasswordChange = { viewModel.setPassword(it) },
-                onPortChange = { viewModel.setPort(it) },
+                onPasswordChange = { viewModel.changePassword(it) },
+                onPortChange = { viewModel.changePort(it) },
             )
         }
     }
