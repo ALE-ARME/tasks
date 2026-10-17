@@ -298,6 +298,7 @@ class MainSettingsComposeFragment : Fragment() {
             SettingsDestination.HelpAndFeedback -> HelpAndFeedback()
             SettingsDestination.Debug -> Debug()
             SettingsDestination.McpServer -> return
+            SettingsDestination.LocalApi -> HttpApi()
         }
         viewLifecycleOwner.lifecycleScope.launch {
             activity.startPreference(

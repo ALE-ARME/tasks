@@ -1,6 +1,5 @@
 package org.tasks.http
 
-import java.security.SecureRandom
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,13 +20,14 @@ data class TaskHttpServerState(
 }
 
 object TaskHttpServerSettings {
-    const val PORT = "http_server_port"
-    const val TOKEN = "http_server_token"
+    const val PORT = "http_api_port"
+    const val PASSWORD = "http_api_password"
 }
 
 /**
- * Holds the one HTTP server the app can have running. Starting it binds a loopback socket only:
- * nothing is reachable from the network, and every request still needs the token.
+ * Holds the one HTTP server the app can have running. It is off until something asks for it, from
+ * the settings screen or from a broadcast, and while it runs it binds a loopback socket only:
+ * nothing is reachable from the network, and every request still needs the password.
  */
 @Singleton
 class TaskHttpServerController @Inject constructor(
@@ -39,28 +39,46 @@ class TaskHttpServerController @Inject constructor(
     private val _state = MutableStateFlow(TaskHttpServerState())
 
     private var server: TaskHttpServer? = null
+    private var servingPort = 0
+    private var servingPassword = ""
 
     val state: StateFlow<TaskHttpServerState> = _state.asStateFlow()
 
+    val password: String
+        get() = preferences.getStringValue(TaskHttpServerSettings.PASSWORD).orEmpty()
+
+    val port: Int
+        get() = preferences.getInt(TaskHttpServerSettings.PORT, TaskHttpServer.DEFAULT_PORT)
+            .takeIf { it in 1..65535 }
+            ?: TaskHttpServer.DEFAULT_PORT
+
     @Synchronized
-    fun start(requestedPort: Int? = null, requestedToken: String? = null): TaskHttpServerState {
-        if (server?.isRunning == true) return _state.value
+    fun start(requestedPort: Int? = null, requestedPassword: String? = null): TaskHttpServerState {
+        val newPort = requestedPort?.takeIf { it in 1..65535 } ?: port
+        val newPassword = requestedPassword?.trim()?.takeIf { it.isNotEmpty() } ?: password
+        if (newPassword.isEmpty()) {
+            return fail("Set a password before starting the HTTP API")
+        }
+        if (server?.isRunning == true) {
+            if (newPort == servingPort && newPassword == servingPassword) return _state.value
+            stop()
+        }
         return try {
-            val port = requestedPort ?: port()
-            val token = requestedToken?.takeIf { it.isNotBlank() } ?: storedToken()
             val server = TaskHttpServer(
-                router = TaskApiRouter(DatabaseTaskApi(engine, writer), token),
-                requestedPort = port,
+                router = TaskApiRouter(DatabaseTaskApi(engine, writer), newPassword),
+                requestedPort = newPort,
             )
             server.start()
             this.server = server
-            store(server.port, token)
+            servingPort = server.port
+            servingPassword = newPassword
+            store(server.port, newPassword)
             TaskHttpServerState(running = true, port = server.port)
                 .also { _state.value = it }
                 .also { Timber.i("Tasks HTTP API listening on %s", it.endpoint) }
         } catch (e: Exception) {
             Timber.e(e, "Failed to start the tasks HTTP API")
-            TaskHttpServerState(error = e.message ?: e.toString()).also { _state.value = it }
+            fail(e.message ?: e.toString())
         }
     }
 
@@ -68,37 +86,42 @@ class TaskHttpServerController @Inject constructor(
     fun stop(): TaskHttpServerState {
         server?.stop()
         server = null
+        servingPort = 0
+        servingPassword = ""
         Timber.i { "Tasks HTTP API stopped" }
         return TaskHttpServerState().also { _state.value = it }
     }
 
     @Synchronized
-    fun restart(): TaskHttpServerState {
-        stop()
-        return start()
+    fun toggle(): TaskHttpServerState =
+        if (server?.isRunning == true) stop() else start()
+
+    /**
+     * Changing the password or the port while the API runs restarts it, so the change takes effect
+     * at once and a client is never left talking to a server whose password it no longer knows.
+     */
+    fun setPassword(newPassword: String) {
+        preferences.setString(TaskHttpServerSettings.PASSWORD, newPassword.trim())
+        restartIfRunning()
     }
 
-    fun port(): Int = preferences.getInt(TaskHttpServerSettings.PORT, TaskHttpServer.DEFAULT_PORT)
-        .takeIf { it in 1..65535 }
-        ?: TaskHttpServer.DEFAULT_PORT
-
-    private fun storedToken(): String {
-        val stored = preferences.getStringValue(TaskHttpServerSettings.TOKEN)
-        if (!stored.isNullOrEmpty()) return stored
-        val token = newToken()
-        preferences.setString(TaskHttpServerSettings.TOKEN, token)
-        Timber.i { "Generated a tasks HTTP API token" }
-        return token
+    fun setPort(newPort: Int) {
+        if (newPort !in 1..65535) return
+        preferences.setInt(TaskHttpServerSettings.PORT, newPort)
+        restartIfRunning()
     }
 
-    private fun store(port: Int, token: String) {
+    private fun restartIfRunning() {
+        if (server?.isRunning == true) {
+            start()
+        }
+    }
+
+    private fun fail(message: String) =
+        TaskHttpServerState(error = message).also { _state.value = it }
+
+    private fun store(port: Int, password: String) {
         preferences.setInt(TaskHttpServerSettings.PORT, port)
-        preferences.setString(TaskHttpServerSettings.TOKEN, token)
-    }
-
-    private fun newToken(): String {
-        val bytes = ByteArray(32)
-        SecureRandom().nextBytes(bytes)
-        return bytes.joinToString("") { "%02x".format(it) }
+        preferences.setString(TaskHttpServerSettings.PASSWORD, password)
     }
 }

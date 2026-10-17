@@ -21,10 +21,10 @@ import org.tasks.api.TasksContract.Tasks
 class TaskApiRouterTest {
 
     private val api = FakeTaskApi()
-    private val router = TaskApiRouter(api, TOKEN)
+    private val router = TaskApiRouter(api, PASSWORD)
 
     @Test
-    fun healthNeedsNoToken() = runTest {
+    fun healthNeedsNoPassword() = runTest {
         val response = router.handle(get("/health"))
 
         assertEquals(200, response.status)
@@ -32,10 +32,20 @@ class TaskApiRouterTest {
     }
 
     @Test
-    fun everythingElseNeedsTheToken() = runTest {
+    fun everythingElseNeedsThePassword() = runTest {
         assertEquals(401, router.handle(get("/v0/tasks")).status)
         assertEquals(401, router.handle(get("/v0/tasks", "wrong")).status)
-        assertEquals(200, router.handle(get("/v0/tasks", TOKEN)).status)
+        assertEquals(200, router.handle(get("/v0/tasks", PASSWORD)).status)
+    }
+
+    @Test
+    fun thePasswordCanAlsoArriveInItsOwnHeader() = runTest {
+        val request = { password: String ->
+            HttpRequest("GET", "/v0/tasks", mapOf("x-server-password" to password))
+        }
+
+        assertEquals(200, router.handle(request(PASSWORD)).status)
+        assertEquals(401, router.handle(request("wrong")).status)
     }
 
     @Test
@@ -46,7 +56,7 @@ class TaskApiRouterTest {
             12,
         )
 
-        val response = router.handle(get("/v0/tasks?limit=2", TOKEN))
+        val response = router.handle(get("/v0/tasks?limit=2", PASSWORD))
 
         assertEquals(200, response.status)
         val body = Json.parseToJsonElement(response.body).jsonObject
@@ -63,28 +73,28 @@ class TaskApiRouterTest {
 
     @Test
     fun anUnknownParameterIsTheCallersFault() = runTest {
-        assertEquals(400, router.handle(get("/v0/tasks?nope=1", TOKEN)).status)
-        assertEquals(400, router.handle(get("/v0/tasks?sort=sideways", TOKEN)).status)
+        assertEquals(400, router.handle(get("/v0/tasks?nope=1", PASSWORD)).status)
+        assertEquals(400, router.handle(get("/v0/tasks?sort=sideways", PASSWORD)).status)
     }
 
     @Test
     fun anUnknownCollectionIsNotFound() = runTest {
-        assertEquals(404, router.handle(get("/v0/nope", TOKEN)).status)
-        assertEquals(404, router.handle(get("/v1/tasks", TOKEN)).status)
+        assertEquals(404, router.handle(get("/v0/nope", PASSWORD)).status)
+        assertEquals(404, router.handle(get("/v1/tasks", PASSWORD)).status)
     }
 
     @Test
     fun readingOneRowThatIsNotThereIsNotFound() = runTest {
         api.byId = ApiRows(listOf(Tasks.ID), emptyList(), 0)
 
-        assertEquals(404, router.handle(get("/v0/tasks/9", TOKEN)).status)
+        assertEquals(404, router.handle(get("/v0/tasks/9", PASSWORD)).status)
     }
 
     @Test
     fun readingOneRowReturnsIt() = runTest {
         api.byId = ApiRows(listOf(Tasks.ID), listOf(arrayOf<Any?>(9L)), 1)
 
-        val response = router.handle(get("/v0/tasks/9", TOKEN))
+        val response = router.handle(get("/v0/tasks/9", PASSWORD))
 
         assertEquals(200, response.status)
         assertEquals(9, Json.parseToJsonElement(response.body).jsonObject[Tasks.ID]!!.jsonPrimitive.content.toInt())
@@ -132,7 +142,7 @@ class TaskApiRouterTest {
         assertEquals(405, response.status)
         assertEquals("GET, POST, DELETE", response.headers["Allow"])
         assertEquals(405, router.handle(post("/v0/accounts", """{"name":"x"}""")).status)
-        assertEquals(405, router.handle(get("/v0/tasks/1", TOKEN, method = "BREW")).status)
+        assertEquals(405, router.handle(get("/v0/tasks/1", PASSWORD, method = "BREW")).status)
     }
 
     @Test
@@ -148,26 +158,26 @@ class TaskApiRouterTest {
     fun anUnexpectedFailureIsTheAppsFault() = runTest {
         api.failure = RuntimeException("boom")
 
-        assertEquals(500, router.handle(get("/v0/tasks", TOKEN)).status)
+        assertEquals(500, router.handle(get("/v0/tasks", PASSWORD)).status)
     }
 
-    private fun get(target: String, token: String? = null, method: String = "GET") =
-        HttpRequest(method, target, headers(token))
+    private fun get(target: String, password: String? = null, method: String = "GET") =
+        HttpRequest(method, target, headers(password))
 
-    private fun post(target: String, body: String, token: String? = TOKEN) =
-        HttpRequest("POST", target, headers(token), body)
+    private fun post(target: String, body: String, password: String? = PASSWORD) =
+        HttpRequest("POST", target, headers(password), body)
 
-    private fun patch(target: String, body: String, token: String? = TOKEN) =
-        HttpRequest("PATCH", target, headers(token), body)
+    private fun patch(target: String, body: String, password: String? = PASSWORD) =
+        HttpRequest("PATCH", target, headers(password), body)
 
-    private fun delete(target: String, token: String? = TOKEN) =
-        HttpRequest("DELETE", target, headers(token))
+    private fun delete(target: String, password: String? = PASSWORD) =
+        HttpRequest("DELETE", target, headers(password))
 
-    private fun headers(token: String?): Map<String, String> =
-        token?.let { mapOf("authorization" to "Bearer $it") }.orEmpty()
+    private fun headers(password: String?): Map<String, String> =
+        password?.let { mapOf("authorization" to "Bearer $it") }.orEmpty()
 
     private companion object {
-        const val TOKEN = "s3cret"
+        const val PASSWORD = "s3cret"
     }
 }
 

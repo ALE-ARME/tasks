@@ -31,6 +31,8 @@ import tasks.kmp.generated.resources.date_and_time
 import tasks.kmp.generated.resources.debug
 import tasks.kmp.generated.resources.about
 import tasks.kmp.generated.resources.local_lists
+import tasks.kmp.generated.resources.local_api
+import tasks.kmp.generated.resources.local_api_summary
 import tasks.kmp.generated.resources.mcp_server
 import tasks.kmp.generated.resources.tasks_org
 import tasks.kmp.generated.resources.navigation_drawer
@@ -61,6 +63,7 @@ sealed class SettingsDestination(override val titleRes: StringResource) : Settin
     data object Backups : SettingsDestination(Res.string.backup_BPr_header)
     data object Widgets : SettingsDestination(Res.string.widget_settings)
     data object McpServer : SettingsDestination(Res.string.mcp_server)
+    data object LocalApi : SettingsDestination(Res.string.local_api)
     data object Advanced : SettingsDestination(Res.string.preferences_advanced)
     data object WorksWith : SettingsDestination(Res.string.works_with_tasks)
     data object HelpAndFeedback : SettingsDestination(Res.string.about)
@@ -118,6 +121,7 @@ fun MainSettingsScreen(
     showWidgets: Boolean,
     showNotifications: Boolean = true,
     showMcpServer: Boolean = false,
+    showLocalApi: Boolean = false,
     isDebug: Boolean = false,
     onAccountClick: (CaldavAccount) -> Unit,
     onAddAccountClick: () -> Unit,
@@ -211,6 +215,7 @@ fun MainSettingsScreen(
             showWidgets = showWidgets,
             showNotifications = showNotifications,
             showMcpServer = showMcpServer,
+            showLocalApi = showLocalApi,
             isDebug = isDebug,
             onSettingsClick = onSettingsClick,
         )
@@ -225,6 +230,7 @@ fun SettingsCategories(
     showWidgets: Boolean,
     showNotifications: Boolean,
     showMcpServer: Boolean = false,
+    showLocalApi: Boolean = false,
     isDebug: Boolean,
     onSettingsClick: (SettingsDestination) -> Unit,
 ) {
@@ -327,6 +333,16 @@ fun SettingsCategories(
                     title = stringResource(Res.string.mcp_server),
                     icon = TasksIcons.TERMINAL,
                     onClick = { onSettingsClick(SettingsDestination.McpServer) }
+                )
+            }
+        }
+        if (showLocalApi) {
+            SettingsItemCard(position = CardPosition.Middle) {
+                PreferenceRow(
+                    title = stringResource(Res.string.local_api),
+                    summary = stringResource(Res.string.local_api_summary),
+                    icon = TasksIcons.TERMINAL,
+                    onClick = { onSettingsClick(SettingsDestination.LocalApi) }
                 )
             }
         }

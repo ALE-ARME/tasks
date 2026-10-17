@@ -441,4 +441,17 @@ File %1$s contained %2$s.\n\n
   <string name="http_server_notification_channel" translatable="false">Tasks HTTP API</string>
   <string name="http_server_notification_title" translatable="false">Tasks HTTP API</string>
   <string name="http_server_notification_text" translatable="false">Listening on the loopback interface</string>
+  <string name="http_api_enable">Serve your tasks over HTTP</string>
+  <string name="http_api_status_running">Running on port %1$d</string>
+  <string name="http_api_status_stopped">Not running</string>
+  <string name="http_api_access">Access</string>
+  <string name="http_api_password">Password</string>
+  <string name="http_api_password_unset">No password set</string>
+  <string name="http_api_port">Port</string>
+  <string name="http_api_endpoint">Endpoint</string>
+  <string name="http_api_port_dialog_title">Port to listen on</string>
+  <string name="http_api_password_dialog_title">Password</string>
+  <string name="http_api_password_dialog_hint">Any request without this password is refused</string>
+  <string name="http_api_loopback">The server listens on 127.0.0.1 only, so nothing on the network can reach it, and it stops when you switch it off</string>
+  <string name="http_api_intent_summary">An automation app can start it with org.tasks.intent.action.START_HTTP_SERVER, and stop it with org.tasks.intent.action.STOP_HTTP_SERVER</string>
 </resources>

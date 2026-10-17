@@ -1,17 +1,32 @@
 # Tasks.org HTTP API
 
 A local HTTP server, in the same app, over the same data as the
-[content provider API](CONTENT_PROVIDER.md). It is off by default and is started and stopped
-with a broadcast, so it only listens while something needs it.
+[content provider API](CONTENT_PROVIDER.md). It is off by default and is started from
+**Settings → Local API**, or with a broadcast, so it only listens while something needs it.
 
 > **`v0` is unstable.** Collections, columns and parameters follow the content provider API and
 > may change between releases.
 
+## Password
+
+Every request except `GET /health` needs the password set in the settings screen. Send it as
+
+```
+Authorization: Bearer <password>
+```
+
+or as `X-Server-Password: <password>`. The server refuses to start without a password. Changing
+the password or the port in the settings screen restarts the server, so a client is never left
+talking to a server whose password it no longer knows.
+
 ## Starting and stopping
+
+From **Settings → Local API**, with the switch, or:
 
 ```bash
 adb shell am broadcast -a org.tasks.intent.action.START_HTTP_SERVER
 adb shell am broadcast -a org.tasks.intent.action.STOP_HTTP_SERVER
+adb shell am broadcast -a org.tasks.intent.action.TOGGLE_HTTP_SERVER
 ```
 
 The start broadcast reports the endpoint as its result data:
@@ -23,19 +38,11 @@ Broadcast completed: result=0, data="http://127.0.0.1:8275/v0"
 | Extra | Type | Meaning |
 | --- | --- | --- |
 | `port` | int | Port to listen on. Defaults to 8275, and to the last port used. |
-| `token` | string | Bearer token to require. Defaults to the stored token, and is generated on the first start. |
+| `password` | string | Replaces the stored password before starting. |
 
 `START` binds `127.0.0.1` only: nothing on the network can reach the server, and a client on the
 phone itself (`curl` in Termux, an automation app) or a host reaching the device over
-`adb forward tcp:8275 tcp:8275` is all that can talk to it. Every request except `GET /health`
-needs `Authorization: Bearer <token>`.
-
-Passing `--es token` replaces the stored token, which is the way to set one you know without
-reading it back from the app:
-
-```bash
-adb shell am broadcast -a org.tasks.intent.action.START_HTTP_SERVER --es token "$TOKEN"
-```
+`adb forward tcp:8275 tcp:8275` is all that can talk to it.
 
 On Android 13 and up the notification permission is not required for this, but the app is kept out
 of the cached and frozen states by a foreground service, so a notification is shown while the API
@@ -50,7 +57,7 @@ columns and failures are exactly those of the [content provider API](CONTENT_PRO
 
 | Endpoint | Methods |
 | --- | --- |
-| `/health` | `GET` - no token needed |
+| `/health` | `GET` - no password needed |
 | `/v0` | `GET` - collections, parameters, columns and methods |
 | `/v0/tasks`, `/v0/reminders`, `/v0/task_tags`, `/v0/lists`, `/v0/tags`, `/v0/places` | `GET`, `POST` |
 | `/v0/tasks/{id}` and the same for the other collections | `GET`, `PATCH`, `DELETE` |
@@ -72,7 +79,7 @@ A write takes a JSON object of the writable columns and nothing else:
 
 ```bash
 curl -s -X POST http://127.0.0.1:8275/v0/tasks \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "Authorization: Bearer $PASSWORD" \
   -H 'Content-Type: application/json' \
   -d '{"title": "Buy milk", "notes": "Oat", "due_date": "2026-09-12"}'
 # {"id": 12}
@@ -87,7 +94,7 @@ Status codes follow the same three outcomes as the provider API:
 | Status | Meaning |
 | --- | --- |
 | `400` | The request is malformed: an unknown parameter, a body that is not a JSON object, a value the column cannot take. |
-| `401` | No token, or the wrong one. |
+| `401` | No password, or the wrong one. |
 | `403` | The target is read-only, such as a task on a shared list. |
 | `404` | Nothing at that path or no row with that id. |
 | `405` | The collection does not take that method; `Allow` lists the ones it does. |

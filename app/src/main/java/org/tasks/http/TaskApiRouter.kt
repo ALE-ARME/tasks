@@ -24,11 +24,11 @@ import org.tasks.api.TasksContract.TaskTags
 /**
  * The REST face of [TaskApi]: `GET/POST/PATCH/DELETE /v0/<collection>[/<id>]`, with the parameter
  * names, writable columns and failures of the content provider API. Everything except `/health`
- * needs a bearer token.
+ * needs the password, as `Authorization: Bearer <password>` or `X-Server-Password: <password>`.
  */
 class TaskApiRouter(
     private val api: TaskApi,
-    private val token: String,
+    private val password: String,
     private val version: String = API_VERSION,
 ) {
 
@@ -48,7 +48,9 @@ class TaskApiRouter(
         if (!authorized(request)) {
             return HttpResponse(
                 401,
-                HttpResponse.jsonError("Send $AUTHORIZATION: Bearer <token>."),
+                HttpResponse.jsonError(
+                    "Send $AUTHORIZATION: Bearer <password> or $SERVER_PASSWORD: <password>.",
+                ),
                 headers = mapOf("WWW-Authenticate" to "Bearer"),
             )
         }
@@ -226,11 +228,16 @@ class TaskApiRouter(
     }
 
     private fun authorized(request: HttpRequest): Boolean {
-        val header = request.authorization ?: return false
-        if (!header.startsWith(BEARER, ignoreCase = true)) return false
-        val presented = header.substring(BEARER.length).trim()
-        return token.isNotEmpty() &&
-            MessageDigest.isEqual(token.toByteArray(), presented.toByteArray())
+        if (password.isEmpty()) return false
+        return request.credentials().any { presented ->
+            MessageDigest.isEqual(password.toByteArray(), presented.toByteArray())
+        }
+    }
+
+    private fun HttpRequest.credentials(): List<String> = buildList {
+        authorization?.takeIf { it.startsWith(BEARER, ignoreCase = true) }
+            ?.let { add(it.substring(BEARER.length).trim()) }
+        header(SERVER_PASSWORD)?.trim()?.let { add(it) }
     }
 
     private fun parseId(segment: String): Long =
@@ -288,6 +295,7 @@ class TaskApiRouter(
         const val HEALTH = "health"
         const val BEARER = "Bearer "
         const val AUTHORIZATION = "Authorization"
+        const val SERVER_PASSWORD = "X-Server-Password"
 
         val POSTABLE = setOf(
             TasksContract.Tasks.PATH,

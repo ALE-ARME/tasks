@@ -30,6 +30,7 @@ fun AndroidMainSettingsScreen(
         environmentLabel = environmentLabel,
         showBackupWarning = showBackupWarning,
         showWidgets = showWidgets,
+        showLocalApi = true,
         isDebug = isDebug,
         onAccountClick = onAccountClick,
         onAddAccountClick = onAddAccountClick,

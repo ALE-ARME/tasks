@@ -193,6 +193,8 @@
     <string name="about">About</string>
     <string name="widget_settings">Widget settings</string>
     <string name="mcp_server_summary">Let AI assistants on this computer read and manage your data</string>
+    <string name="local_api">Local API</string>
+    <string name="local_api_summary">Let tools on this device read and write your tasks over HTTP</string>
     <string name="mcp_server_enable">Serve your data over MCP</string>
     <string name="mcp_server_enable_summary">Runs on this computer only, at 127.0.0.1. Nothing is exposed to the network.</string>
     <string name="mcp_status_running">Running on port %1$d</string>
