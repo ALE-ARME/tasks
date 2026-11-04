@@ -1,0 +1,147 @@
+name: Build Desktop MSI
+
+on:
+  workflow_call:
+    inputs:
+      upstream_tag:
+        description: Upstream tag of tasks/tasks to build
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      upstream_tag:
+        description: Upstream tag of tasks/tasks (blank = latest stable release)
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-msi-${{ inputs.upstream_tag }}
+  cancel-in-progress: false
+
+jobs:
+  msi:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve upstream ref
+        id: tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_TAG: ${{ inputs.upstream_tag }}
+        run: |
+          set -euo pipefail
+          tag="${REQUESTED_TAG:-}"
+          if [ -z "$tag" ]; then
+            tag=$(gh api repos/tasks/tasks/releases/latest --jq .tag_name)
+          fi
+          if [ -z "$tag" ] || [ "$tag" = "null" ]; then
+            echo "::error::could not resolve an upstream tag"
+            exit 1
+          fi
+          echo "Building upstream $tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch upstream sources
+        id: source
+        shell: bash
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          cp patches/desktop-caldav-unlock.patch "$RUNNER_TEMP/desktop-caldav-unlock.patch"
+          git config core.autocrlf false
+          git remote add upstream https://github.com/tasks/tasks.git 2>/dev/null || true
+          if git fetch --no-tags upstream "refs/tags/$TAG:refs/tags/$TAG" 2>/dev/null; then
+            ref="refs/tags/$TAG"
+          elif git fetch --no-tags upstream "refs/heads/$TAG:refs/remotes/upstream/$TAG" 2>/dev/null; then
+            ref="refs/remotes/upstream/$TAG"
+          else
+            echo "::error::neither tag nor branch $TAG exists upstream"
+            exit 1
+          fi
+          git checkout --force --detach "$ref"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+      - name: Apply CalDAV unlock patch
+        shell: bash
+        env:
+          REF: ${{ steps.source.outputs.ref }}
+        run: |
+          set -euo pipefail
+          patchfile="$RUNNER_TEMP/desktop-caldav-unlock.patch"
+          if ! git apply --3way --whitespace=nowarn "$patchfile"; then
+            echo "::warning::git apply failed, retrying with fuzzy patch(1)"
+            git reset --hard "$REF"
+            patch -p1 -l -F3 < "$patchfile"
+          fi
+          if grep -rq '<<<<<<<' composeApp/src/desktopMain/kotlin/org/tasks/di/DesktopModule.kt \
+              kmp/src/commonMain/kotlin/org/tasks/caldav/CaldavSynchronizer.kt; then
+            echo "::error::patch left conflict markers behind"
+            exit 1
+          fi
+          grep -q 'thirdPartySyncRequiresPro = false' composeApp/src/desktopMain/kotlin/org/tasks/di/DesktopModule.kt
+          grep -q 'hasPro: Boolean get() = true' composeApp/src/commonMain/kotlin/org/tasks/di/CoreModule.kt
+          echo "CalDAV patch applied on top of ${{ steps.tag.outputs.tag }}"
+
+      - name: Set up JDK and Gradle
+        uses: ./.github/actions/setup-gradle
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^VERSION_NAME=//p' version.properties)
+          echo "name=${version:-dev}" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure WiX Toolset
+        shell: pwsh
+        run: |
+          if (-not (Get-ChildItem "C:\Program Files (x86)\WiX Toolset*" -ErrorAction SilentlyContinue)) {
+            choco install wixtoolset --version=3.14.1 -y --no-progress
+          }
+
+      - name: Build MSI
+        shell: cmd
+        run: gradlew.bat :composeApp:packageMsi
+
+      - name: Locate MSI
+        id: msi
+        shell: bash
+        run: |
+          set -euo pipefail
+          msi=$(find composeApp/build/compose/binaries/main/msi -name '*.msi' -type f | head -1)
+          if [ -z "$msi" ]; then
+            echo "::error::no MSI found"
+            ls -R composeApp/build/compose/binaries/main || true
+            exit 1
+          fi
+          echo "path=$msi" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$msi")" >> "$GITHUB_OUTPUT"
+          ls -l "$msi"
+
+      - name: Upload MSI
+        uses: actions/upload-artifact@v7
+        with:
+          name: tasks-desktop-msi-${{ steps.tag.outputs.tag }}
+          path: ${{ steps.msi.outputs.path }}
+
+      - name: Publish MSI release
+        if: startsWith(steps.source.outputs.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-${{ steps.tag.outputs.tag }}
+          name: Tasks desktop ${{ steps.version.outputs.name }} (CalDAV unlocked)
+          make_latest: false
+          body: |
+            Windows MSI built from upstream `tasks/tasks` tag `${{ steps.tag.outputs.tag }}` with
+            `patches/desktop-caldav-unlock.patch` applied, so CalDAV sync works without a supporter plan.
+          files: ${{ steps.msi.outputs.path }}

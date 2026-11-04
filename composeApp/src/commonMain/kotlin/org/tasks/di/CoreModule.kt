@@ -398,7 +398,7 @@ val coreModule: Module = module {
         }
         object : org.tasks.billing.PurchaseState {
             override val hasTasksAccount: Boolean get() = _hasTasksAccount.value
-            override val hasPro: Boolean get() = hasTasksAccount || _hasSubscription.value
+            override val hasPro: Boolean get() = true
             override val hasTasksSubscription: Boolean
                 get() = _hasTasksSubscription.value || hasTasksAccount
         }

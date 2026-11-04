@@ -103,10 +103,6 @@ class CaldavSynchronizer(
 ) {
     suspend fun sync(account: CaldavAccount, hasPro: Boolean) {
         Logger.d(TAG) { "Synchronizing $account" }
-        if (!hasPro && !account.isTasksOrg) {
-            setError(account, getString(Res.string.subscription_required))
-            return
-        }
         if (account.password.isNullOrBlank()) {
             setError(account, if (account.isTasksOrg) {
                 ERROR_UNAUTHORIZED

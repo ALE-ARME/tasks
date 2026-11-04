@@ -178,7 +178,7 @@ actual fun platformModule(): Module = module {
         PlatformConfiguration(
             versionCode = JvmBuildConfig.VERSION_CODE,
             billingProvider = BillingProvider.STRIPE,
-            thirdPartySyncRequiresPro = true,
+            thirdPartySyncRequiresPro = false,
             supportsCaldav = true,
             supportsEteSync = true,
             supportsGoogleTasks = true,
@@ -379,13 +379,9 @@ actual fun platformModule(): Module = module {
         val tasksPreferences: TasksPreferences = get()
         EntitlementSubscriptionProvider(
             entitlement = get(),
-            debugPro = if (TasksBuildConfig.DEBUG) {
-                tasksPreferences.flow(TasksPreferences.debugPro, false)
-            } else {
-                flowOf(false)
-            },
-            googleAndMicrosoftRequirePro = true,
-            verifyBeforeSync = true,
+            debugPro = flowOf(true),
+            googleAndMicrosoftRequirePro = false,
+            verifyBeforeSync = false,
         )
     }
     single<DesktopLinkClient> {

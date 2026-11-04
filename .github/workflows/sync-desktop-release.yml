@@ -1,0 +1,138 @@
+name: Sync Upstream Desktop Release
+
+on:
+  schedule:
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+    inputs:
+      upstream_tag:
+        description: Force a specific upstream tag (blank = latest stable release)
+        required: false
+        type: string
+      force:
+        description: Rebuild even if a desktop release already exists for the tag
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-desktop-release
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.detect.outputs.tag }}
+      build: ${{ steps.detect.outputs.build }}
+      reason: ${{ steps.detect.outputs.reason }}
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Detect upstream release with desktop changes
+        id: detect
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REQUESTED_TAG: ${{ inputs.upstream_tag }}
+          FORCE: ${{ inputs.force }}
+          # Latest upstream release that the patch no longer targets; releases at or below it are skipped.
+          BASELINE_TAG: '15.13'
+        run: |
+          set -euo pipefail
+
+          tag="${REQUESTED_TAG:-}"
+          if [ -z "$tag" ]; then
+            tag=$(gh api repos/tasks/tasks/releases/latest --jq .tag_name)
+          fi
+          if [ -z "$tag" ] || [ "$tag" = "null" ]; then
+            echo "::error::could not resolve an upstream release"
+            exit 1
+          fi
+          echo "upstream release: $tag"
+
+          # The fork only knows how to patch releases newer than the one it started from.
+          if [ -z "${REQUESTED_TAG:-}" ] && [ "${FORCE:-false}" != "true" ]; then
+            newest=$(printf '%s\n%s\n' "$tag" "$BASELINE_TAG" | sort -V | tail -1)
+            if [ "$newest" = "$BASELINE_TAG" ]; then
+              echo "$tag is not newer than the fork baseline $BASELINE_TAG, nothing to do"
+              {
+                echo "tag=$tag"
+                echo "build=false"
+                echo "reason=not newer than baseline $BASELINE_TAG"
+              } >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          if [ "${FORCE:-false}" != "true" ] && gh release view "desktop-$tag" > /dev/null 2>&1; then
+            echo "desktop-$tag already published, nothing to do"
+            {
+              echo "tag=$tag"
+              echo "build=false"
+              echo "reason=already published"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git remote add upstream https://github.com/tasks/tasks.git 2>/dev/null || true
+          git fetch --tags --force --quiet upstream
+
+          if ! git rev-parse -q --verify "refs/tags/$tag" > /dev/null; then
+            if [ -n "${REQUESTED_TAG:-}" ]; then
+              echo "$tag is not an upstream tag, building it as requested"
+              {
+                echo "tag=$tag"
+                echo "build=true"
+                echo "reason=requested ref is not a tag"
+              } >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::error::upstream tag $tag not found"
+            exit 1
+          fi
+
+          previous=$(gh release list --limit 100 --json tagName,createdAt \
+            --jq '[.[] | select(.tagName | startswith("desktop-"))] | sort_by(.createdAt) | reverse | .[0].tagName // ""')
+          previous="${previous#desktop-}"
+
+          if [ -z "$previous" ] || ! git rev-parse -q --verify "refs/tags/$previous" > /dev/null; then
+            build=true
+            reason="first desktop build"
+          else
+            changed=$(git diff --name-only "refs/tags/$previous" "refs/tags/$tag" -- \
+              composeApp kmp data cert4android gradle libs \
+              build.gradle.kts settings.gradle.kts gradle.properties version.properties)
+            if [ -n "$changed" ]; then
+              build=true
+              reason="desktop files changed since $previous"
+              echo "Changed desktop files:"
+              echo "$changed"
+            else
+              build=false
+              reason="no desktop changes since $previous"
+            fi
+          fi
+
+          echo "$reason"
+          {
+            echo "tag=$tag"
+            echo "build=$build"
+            echo "reason=$reason"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: [ detect ]
+    if: needs.detect.outputs.build == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/desktop-msi.yml
+    with:
+      upstream_tag: ${{ needs.detect.outputs.tag }}
