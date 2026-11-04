@@ -1,0 +1,58 @@
+diff --git a/composeApp/src/commonMain/kotlin/org/tasks/di/CoreModule.kt b/composeApp/src/commonMain/kotlin/org/tasks/di/CoreModule.kt
+index 3c91497447..e3befa8c44 100644
+--- a/composeApp/src/commonMain/kotlin/org/tasks/di/CoreModule.kt
++++ b/composeApp/src/commonMain/kotlin/org/tasks/di/CoreModule.kt
+@@ -388,7 +388,7 @@ val coreModule: Module = module {
+         }
+         object : org.tasks.billing.PurchaseState {
+             override val hasTasksAccount: Boolean get() = _hasTasksAccount.value
+-            override val hasPro: Boolean get() = hasTasksAccount || _hasSubscription.value
++            override val hasPro: Boolean get() = true
+             override val hasTasksSubscription: Boolean
+                 get() = _hasTasksSubscription.value || hasTasksAccount
+         }
+diff --git a/composeApp/src/desktopMain/kotlin/org/tasks/di/DesktopModule.kt b/composeApp/src/desktopMain/kotlin/org/tasks/di/DesktopModule.kt
+index 2408d24789..277424063c 100644
+--- a/composeApp/src/desktopMain/kotlin/org/tasks/di/DesktopModule.kt
++++ b/composeApp/src/desktopMain/kotlin/org/tasks/di/DesktopModule.kt
+@@ -177,7 +177,7 @@ actual fun platformModule(): Module = module {
+         PlatformConfiguration(
+             versionCode = JvmBuildConfig.VERSION_CODE,
+             billingProvider = BillingProvider.STRIPE,
+-            thirdPartySyncRequiresPro = true,
++            thirdPartySyncRequiresPro = false,
+             supportsCaldav = true,
+             supportsEteSync = true,
+             supportsGoogleTasks = true,
+@@ -378,13 +378,9 @@ actual fun platformModule(): Module = module {
+         val tasksPreferences: TasksPreferences = get()
+         EntitlementSubscriptionProvider(
+             entitlement = get(),
+-            debugPro = if (TasksBuildConfig.DEBUG) {
+-                tasksPreferences.flow(TasksPreferences.debugPro, false)
+-            } else {
+-                flowOf(false)
+-            },
+-            googleAndMicrosoftRequirePro = true,
+-            verifyBeforeSync = true,
++            debugPro = flowOf(true),
++            googleAndMicrosoftRequirePro = false,
++            verifyBeforeSync = false,
+         )
+     }
+     single<DesktopLinkClient> {
+diff --git a/kmp/src/commonMain/kotlin/org/tasks/caldav/CaldavSynchronizer.kt b/kmp/src/commonMain/kotlin/org/tasks/caldav/CaldavSynchronizer.kt
+index 9fb080268b..8a69428751 100644
+--- a/kmp/src/commonMain/kotlin/org/tasks/caldav/CaldavSynchronizer.kt
++++ b/kmp/src/commonMain/kotlin/org/tasks/caldav/CaldavSynchronizer.kt
+@@ -103,10 +103,6 @@ class CaldavSynchronizer(
+ ) {
+     suspend fun sync(account: CaldavAccount, hasPro: Boolean) {
+         Logger.d(TAG) { "Synchronizing $account" }
+-        if (!hasPro && !account.isTasksOrg) {
+-            setError(account, getString(Res.string.subscription_required))
+-            return
+-        }
+         if (account.password.isNullOrBlank()) {
+             setError(account, if (account.isTasksOrg) {
+                 ERROR_UNAUTHORIZED
