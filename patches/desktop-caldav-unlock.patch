@@ -1,8 +1,8 @@
 diff --git a/composeApp/src/commonMain/kotlin/org/tasks/di/CoreModule.kt b/composeApp/src/commonMain/kotlin/org/tasks/di/CoreModule.kt
-index 3c91497447..e3befa8c44 100644
+index d799f63..dc935d2 100644
 --- a/composeApp/src/commonMain/kotlin/org/tasks/di/CoreModule.kt
 +++ b/composeApp/src/commonMain/kotlin/org/tasks/di/CoreModule.kt
-@@ -388,7 +388,7 @@ val coreModule: Module = module {
+@@ -399,7 +399,7 @@ val coreModule: Module = module {
          }
          object : org.tasks.billing.PurchaseState {
              override val hasTasksAccount: Boolean get() = _hasTasksAccount.value
@@ -12,27 +12,31 @@ index 3c91497447..e3befa8c44 100644
                  get() = _hasTasksSubscription.value || hasTasksAccount
          }
 diff --git a/composeApp/src/desktopMain/kotlin/org/tasks/di/DesktopModule.kt b/composeApp/src/desktopMain/kotlin/org/tasks/di/DesktopModule.kt
-index 2408d24789..277424063c 100644
+index 070dad2..a555ac4 100644
 --- a/composeApp/src/desktopMain/kotlin/org/tasks/di/DesktopModule.kt
 +++ b/composeApp/src/desktopMain/kotlin/org/tasks/di/DesktopModule.kt
-@@ -177,7 +177,7 @@ actual fun platformModule(): Module = module {
-         PlatformConfiguration(
+@@ -7,6 +7,7 @@ import at.bitfire.cert4android.DesktopUserDecisionRegistry
+ import com.todoroo.astrid.alarms.AlarmService
+ import com.todoroo.astrid.service.CommonUpgrades
+ import kotlinx.coroutines.flow.Flow
++import kotlinx.coroutines.flow.flowOf
+ import org.koin.core.module.Module
+ import org.koin.core.module.dsl.factoryOf
+ import org.koin.core.module.dsl.singleOf
+@@ -179,7 +180,7 @@ actual fun platformModule(): Module = module {
              versionCode = JvmBuildConfig.VERSION_CODE,
              billingProvider = BillingProvider.STRIPE,
+             supportsPlayLinkRestore = true,
 -            thirdPartySyncRequiresPro = true,
 +            thirdPartySyncRequiresPro = false,
              supportsCaldav = true,
              supportsEteSync = true,
              supportsGoogleTasks = true,
-@@ -378,13 +378,9 @@ actual fun platformModule(): Module = module {
-         val tasksPreferences: TasksPreferences = get()
+@@ -379,9 +380,9 @@ actual fun platformModule(): Module = module {
+     single<SubscriptionProvider> {
          EntitlementSubscriptionProvider(
              entitlement = get(),
--            debugPro = if (TasksBuildConfig.DEBUG) {
--                tasksPreferences.flow(TasksPreferences.debugPro, false)
--            } else {
--                flowOf(false)
--            },
+-            debugPro = get<TasksPreferences>().debugProFlow,
 -            googleAndMicrosoftRequirePro = true,
 -            verifyBeforeSync = true,
 +            debugPro = flowOf(true),
@@ -42,7 +46,7 @@ index 2408d24789..277424063c 100644
      }
      single<DesktopLinkClient> {
 diff --git a/kmp/src/commonMain/kotlin/org/tasks/caldav/CaldavSynchronizer.kt b/kmp/src/commonMain/kotlin/org/tasks/caldav/CaldavSynchronizer.kt
-index 9fb080268b..8a69428751 100644
+index a2ab06e..18860e7 100644
 --- a/kmp/src/commonMain/kotlin/org/tasks/caldav/CaldavSynchronizer.kt
 +++ b/kmp/src/commonMain/kotlin/org/tasks/caldav/CaldavSynchronizer.kt
 @@ -103,10 +103,6 @@ class CaldavSynchronizer(
